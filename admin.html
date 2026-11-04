@@ -7,7 +7,7 @@
 <title>Steuerung · Mirelas Tag</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=20">
+<link rel="stylesheet" href="style.css?v=21">
 </head>
 <body>
 <main class="wrap">
@@ -40,6 +40,7 @@
         <summary>Überschrift und Texte der Wahl bearbeiten</summary>
         <form id="choiceTextForm" class="editor">
           <div class="field"><label for="ct-heading">Überschrift</label><input id="ct-heading" maxlength="80" required></div>
+          <div class="field"><label for="ct-sub">Untertitel <span class="opt">unter der Überschrift, vor und während der Wahl</span></label><textarea id="ct-sub" rows="2"></textarea></div>
           <div class="field"><label for="ct-open">Text, wenn die Wahl offen ist</label><textarea id="ct-open" rows="3"></textarea></div>
           <div class="field"><label for="ct-closed">Text, wenn die Zeit abgelaufen ist <span class="opt">falls sie nicht gewählt hat</span></label><textarea id="ct-closed" rows="2"></textarea></div>
           <div class="actions"><button type="submit" id="choiceTextSave">Texte speichern</button></div>
@@ -113,7 +114,7 @@
   </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=20"></script>
+<script src="config.js?v=21"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -363,6 +364,7 @@
         if (s.key === 'choice_close_at') choiceState.close_at = s.value || null;
         if (!choiceTextDirty) {
           if (s.key === 'choice_heading') $('ct-heading').value = s.value;
+          if (s.key === 'choice_subtitle') $('ct-sub').value = s.value;
           if (s.key === 'choice_text_open') $('ct-open').value = s.value;
           if (s.key === 'choice_text_closed') $('ct-closed').value = s.value;
         }
@@ -496,6 +498,7 @@
     choiceTextDirty = false;
     run([
       function(){ return sb.from('settings').update({ value: hd }).eq('key', 'choice_heading'); },
+      function(){ return sb.from('settings').update({ value: $('ct-sub').value.trim() }).eq('key', 'choice_subtitle'); },
       function(){ return sb.from('settings').update({ value: op }).eq('key', 'choice_text_open'); },
       function(){ return sb.from('settings').update({ value: wt }).eq('key', 'choice_text_closed'); }
     ], 'Texte der Wahl gespeichert.');

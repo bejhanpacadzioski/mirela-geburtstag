@@ -7,7 +7,7 @@
 <title>Alles Gute, Mirela</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=20">
+<link rel="stylesheet" href="style.css?v=21">
 </head>
 <body>
 <main class="wrap">
@@ -28,7 +28,7 @@
 <canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=20"></script>
+<script src="config.js?v=21"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -303,6 +303,7 @@
     if (status === 'off') { box.hidden = true; return; }
     box.hidden = false;
     var heading = esc(c.heading || 'Wie soll unser Nachmittag aussehen?');
+    var subtitle = c.subtitle ? '<p class="choice-sub">'+esc(c.subtitle)+'</p>' : '';
 
     if (status === 'chosen') {
       var o = optByKey(c.choice) || { teaser: c.choice, key: c.choice };
@@ -322,13 +323,16 @@
     if (status === 'wait') {
       choicePending = true;
       box.className = 'choice is-waiting';
-      box.innerHTML = '<h2 id="choiceTitle">'+heading+'</h2>'+
+      var openAt = new Date(c.open_at);
+      box.innerHTML = '<h2 id="choiceTitle">'+heading+'</h2>'+subtitle+
+        '<p class="countdown" aria-live="off"><span class="cd-label">Die Wahl öffnet in</span><span class="cd-time" id="cdTime">'+countdownText(openAt - nowServer())+'</span></p>'+
         '<ul class="picks">'+(c.options || []).map(function(o, i){
           return '<li class="pick-mini"><span class="lock">'+LOCK+'</span><div><p class="pick-num">Option '+(i + 1)+'</p><h3>'+esc(o.teaser)+'</h3></div></li>';
         }).join('')+'</ul>';
-      var openAt = new Date(c.open_at);
       countdownTimer = setInterval(function(){
-        if (nowServer() >= openAt) { clearInterval(countdownTimer); choiceKey = ''; lastKey = ''; load(); }
+        var left = openAt - nowServer();
+        if (left <= 0) { clearInterval(countdownTimer); choiceKey = ''; lastKey = ''; load(); return; }
+        var el = $('cdTime'); if (el) el.textContent = countdownText(left);
       }, 1000);
       return;
     }
@@ -347,7 +351,7 @@
     box.className = 'choice is-open';
     box.innerHTML =
       '<p class="eyebrow">Eine Entscheidung</p>'+
-      '<h2 id="choiceTitle">'+heading+'</h2>'+
+      '<h2 id="choiceTitle">'+heading+'</h2>'+subtitle+
       (c.text_open ? '<p class="choice-lede">'+esc(c.text_open)+'</p>' : '')+
       (closeAt
         ? '<p class="deadline"><span>Wählen bis '+esc(fmtOpen(c.close_at))+'</span>'+
@@ -511,7 +515,7 @@
     var slots = r[0], page = r[1], files = r[2].error ? [] : (r[2].data || []), extras = r[3], ch = r[4];
     if (!ch.error && ch.data) {
       var srv = Date.parse(ch.data.now); if (!isNaN(srv)) serverOffset = srv - Date.now();
-      var ck = JSON.stringify([ch.data.open_at, ch.data.close_at, ch.data.choice, ch.data.variant, ch.data.options, ch.data.heading, ch.data.text_open, ch.data.text_closed, choiceStatus(ch.data)]);
+      var ck = JSON.stringify([ch.data.open_at, ch.data.close_at, ch.data.choice, ch.data.variant, ch.data.options, ch.data.heading, ch.data.subtitle, ch.data.text_open, ch.data.text_closed, choiceStatus(ch.data)]);
       if (ck !== choiceKey && !choosing) {
         var wasPending = choicePending;
         choiceKey = ck; choiceData = ch.data;
