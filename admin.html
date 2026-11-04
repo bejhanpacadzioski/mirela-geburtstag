@@ -7,7 +7,7 @@
 <title>Steuerung · Mirelas Tag</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=7">
+<link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
 <main class="wrap">
@@ -37,11 +37,12 @@
     </div>
 
     <details class="texts" id="textsBox">
-      <summary>Titel und Untertitel von Mirelas Seite</summary>
+      <summary>Seite: Titel, Untertitel und Wetterdatum</summary>
       <form id="textForm" class="editor">
         <div class="field"><label for="t-title">Titel</label><input id="t-title" required maxlength="80"></div>
         <div class="field"><label for="t-subtitle">Untertitel <span class="opt">optional</span></label><textarea id="t-subtitle" rows="2" maxlength="240"></textarea></div>
-        <div class="actions"><button type="submit" id="textSave">Texte speichern</button></div>
+        <div class="field"><label for="t-wdate">Wetter anzeigen für</label><input id="t-wdate" type="date" required></div>
+        <div class="actions"><button type="submit" id="textSave">Speichern</button></div>
       </form>
     </details>
 
@@ -71,11 +72,11 @@
   </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=7"></script>
+<script src="config.js?v=9"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-  var items = [], busy = false, editing = null, confirmDel = null;
+  var items = [], files = [], busy = false, editing = null, confirmDel = null;
   var variant = 'schlecht', filter = 'active', textDirty = false;
   var VLABEL = { beide: 'Beide', gut: 'Schönwetter', schlecht: 'Schlechtwetter' };
 
@@ -113,6 +114,45 @@
     '</form>';
   }
 
+  function fmtSize(b){ if (!b) return ''; return b > 1048576 ? (b/1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(b/1024)) + ' KB'; }
+  function filesAdminHTML(it){
+    var list = files.filter(function(f){ return f.plan_id === it.id; });
+    var dis = busy ? ' disabled' : '';
+    return '<div class="afiles">'+
+      (list.length ? '<ul class="afile-list">' + list.map(function(f){
+        return '<li class="afile"><button type="button" class="linkish" data-act="openfile" data-path="'+esc(f.path)+'">'+esc(f.name)+'</button>'+
+          '<span class="afile-size">'+fmtSize(f.size)+'</span>'+
+          '<button type="button" class="icon x" data-act="delfile" data-file="'+esc(f.id)+'" aria-label="Anhang '+esc(f.name)+' entfernen"'+dis+'>×</button></li>';
+      }).join('') + '</ul>' : '')+
+      '<label class="attach"'+(busy?' aria-disabled="true"':'')+'><input type="file" multiple data-upload="'+esc(it.id)+'"'+dis+'>'+
+        '<span>+ Datei anhängen</span><span class="opt">PDF, Bild usw., max. 20 MB</span></label>'+
+    '</div>';
+  }
+
+  function safeName(n){ return n.normalize('NFKD').replace(/[^\w.\-]+/g, '_').replace(/_+/g, '_').slice(-80) || 'datei'; }
+
+  async function upload(planId, fileList){
+    var arr = Array.prototype.slice.call(fileList);
+    if (!arr.length) return;
+    var tooBig = arr.filter(function(f){ return f.size > 20971520; });
+    if (tooBig.length) { say($('msg'), tooBig[0].name + ' ist grösser als 20 MB.', true); return; }
+    var steps = [];
+    arr.forEach(function(f){
+      var path = planId + '/' + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2)) + '-' + safeName(f.name);
+      steps.push(function(){ return sb.storage.from('attachments').upload(path, f, { contentType: f.type || 'application/octet-stream', upsert: false }); });
+      steps.push(function(){ return sb.from('attachments').insert({ plan_id: planId, name: f.name, path: path, mime: f.type || null, size: f.size }); });
+    });
+    await run(steps, arr.length === 1 ? 'Anhang hochgeladen.' : arr.length + ' Anhänge hochgeladen.');
+  }
+
+  async function openFile(path){
+    var win = null;
+    try { win = window.open('', '_blank'); } catch (e) {}
+    var res = await sb.storage.from('attachments').createSignedUrl(path, 600);
+    if (res.error || !res.data) { if (win) win.close(); say($('msg'), 'Die Datei konnte nicht geöffnet werden.', true); return; }
+    if (win) win.location.href = res.data.signedUrl; else location.href = res.data.signedUrl;
+  }
+
   function renderSwitch(){
     ['gut','schlecht'].forEach(function(v){
       var b = $('v-'+v);
@@ -143,7 +183,8 @@
           '<p class="entry-title">'+esc(it.title)+'</p>'+
           (it.place ? '<p class="entry-sub">'+esc(it.place)+'</p>' : '')+
           (it.note ? '<p class="entry-note">'+esc(it.note)+'</p>' : '')+
-          (it.location ? '<p class="entry-loc">Ort: '+esc(it.location)+'</p>' : ''))+
+          (it.location ? '<p class="entry-loc">Ort: '+esc(it.location)+'</p>' : '')+
+          filesAdminHTML(it))+
         (open ? editorHTML(it) :
           '<div class="entry-actions">'+
             '<button type="button" data-act="toggle"'+(on?' class="ghost"':'')+dis+'>'+(on?'Verbergen':'Freischalten')+'</button>'+
@@ -163,12 +204,15 @@
     var r1 = await sb.from('plan').select('*').order('sort').order('time_label');
     if (r1.error) { say($('msg'), 'Die Einträge konnten nicht geladen werden: ' + r1.error.message, true); return; }
     items = r1.data || [];
+    var r3 = await sb.from('attachments').select('*').order('created_at');
+    files = r3.error ? [] : (r3.data || []);
     var r2 = await sb.from('settings').select('key,value');
     if (!r2.error && r2.data) {
       r2.data.forEach(function(s){
         if (s.key === 'variant') variant = s.value;
         if (s.key === 'title' && !textDirty) $('t-title').value = s.value;
         if (s.key === 'subtitle' && !textDirty) $('t-subtitle').value = s.value;
+        if (s.key === 'weather_date' && !textDirty) $('t-wdate').value = s.value;
       });
     }
     render();
@@ -228,6 +272,16 @@
     var b = e.target.closest('button[data-act]'); if (!b || busy) return;
     var holder = b.closest('[data-id]'); var id = holder ? holder.getAttribute('data-id') : null;
     var act = b.getAttribute('data-act');
+    if (act === 'openfile') { openFile(b.getAttribute('data-path')); return; }
+    if (act === 'delfile') {
+      var f = files.find(function(x){ return x.id === b.getAttribute('data-file'); }); if (!f) return;
+      if (b.getAttribute('data-sure') !== '1') { b.setAttribute('data-sure', '1'); b.textContent = 'Entfernen?'; b.classList.add('sure'); return; }
+      run([
+        function(){ return sb.storage.from('attachments').remove([f.path]); },
+        function(){ return sb.from('attachments').delete().eq('id', f.id); }
+      ], 'Anhang entfernt.');
+      return;
+    }
     if (act === 'up') move(id, -1);
     else if (act === 'down') move(id, 1);
     else if (act === 'toggle') {
@@ -239,11 +293,17 @@
     else if (act === 'cancel') { editing = null; confirmDel = null; render(); }
     else if (act === 'delete') {
       if (confirmDel !== id) { confirmDel = id; render(); return; }
-      run([function(){ return sb.from('plan').delete().eq('id', id); }], 'Eintrag gelöscht.')
+      var paths = files.filter(function(x){ return x.plan_id === id; }).map(function(x){ return x.path; });
+      run((paths.length ? [function(){ return sb.storage.from('attachments').remove(paths); }] : []).concat([function(){ return sb.from('plan').delete().eq('id', id); }]), 'Eintrag gelöscht.')
         .then(function(ok){ if (ok) { editing = null; confirmDel = null; render(); } });
     }
   }
   $('rows').addEventListener('click', onAction);
+  $('rows').addEventListener('change', function(e){
+    var inp = e.target.closest('input[data-upload]'); if (!inp || busy) return;
+    var id = inp.getAttribute('data-upload'), list = inp.files;
+    upload(id, list);
+  });
   $('newWrap').addEventListener('click', onAction);
   document.addEventListener('submit', function(e){
     if (e.target && e.target.id === 'editor') { e.preventDefault(); saveEditor(); }
@@ -264,15 +324,18 @@
 
   $('t-title').addEventListener('input', function(){ textDirty = true; });
   $('t-subtitle').addEventListener('input', function(){ textDirty = true; });
+  $('t-wdate').addEventListener('input', function(){ textDirty = true; });
   $('textForm').addEventListener('submit', async function(e){
     e.preventDefault();
-    var t = $('t-title').value.trim(), st = $('t-subtitle').value.trim();
+    var t = $('t-title').value.trim(), st = $('t-subtitle').value.trim(), wd = $('t-wdate').value;
     if (!t) { say($('msg'), 'Der Titel darf nicht leer sein.', true); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(wd)) { say($('msg'), 'Bitte ein gültiges Datum fürs Wetter wählen.', true); return; }
     textDirty = false;
     var ok = await run([
       function(){ return sb.from('settings').update({ value: t }).eq('key', 'title'); },
-      function(){ return sb.from('settings').update({ value: st }).eq('key', 'subtitle'); }
-    ], 'Titel und Untertitel gespeichert.');
+      function(){ return sb.from('settings').update({ value: st }).eq('key', 'subtitle'); },
+      function(){ return sb.from('settings').update({ value: wd }).eq('key', 'weather_date'); }
+    ], 'Seitentexte und Wetterdatum gespeichert.');
     if (ok) $('textsBox').open = false;
   });
 

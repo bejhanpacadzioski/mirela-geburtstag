@@ -7,7 +7,7 @@
 <title>Alles Gute, Mirela</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=8">
+<link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
 <main class="wrap">
@@ -23,11 +23,13 @@
   <p class="sign">Von Bejhan, mit Liebe.</p>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=8"></script>
+<script src="config.js?v=9"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-  var BIRTHDAY = '2026-11-27';
+  var BIRTHDAY = '2026-11-27', weatherLoadedFor = null;
+  function shortDate(iso){ var a = iso.split('-'); return Number(a[2]) + '.' + Number(a[1]) + '.'; }
+  var FILE_ICON = '<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.5h5l3.5 3.5v9.5h-8.5z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9 1.5V5h3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>';
   var LOCK = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="currentColor"/><path d="M5 7V5a3 3 0 0 1 6 0v2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>';
   var PIN = '<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5a4.5 4.5 0 0 0-4.5 4.5c0 3.4 4.5 8.5 4.5 8.5s4.5-5.1 4.5-8.5A4.5 4.5 0 0 0 8 1.5Zm0 6.2a1.7 1.7 0 1 1 0-3.4 1.7 1.7 0 0 1 0 3.4Z" fill="currentColor"/></svg>';
   var lastKey = '', lastPage = '', seenOpen = null;
@@ -37,7 +39,8 @@
   function mapLink(q){ return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q); }
 
   /* ---------- Programm ---------- */
-  function render(slots){
+  function render(slots, files){
+    files = files || [];
     var open = slots.filter(function(s){return s.revealed});
     var openIds = open.map(function(s){return s.id});
     $('bar').style.width = (slots.length ? Math.round(open.length/slots.length*100) : 0) + '%';
@@ -47,12 +50,31 @@
         var fresh = seenOpen && seenOpen.indexOf(s.id) === -1 ? ' fresh' : '';
         return '<li class="slot open'+fresh+'"><div class="time">'+esc(s.time_label)+'</div><div class="card"><h2>'+esc(s.title)+'</h2>'+
           (s.place ? '<p class="place">'+esc(s.place)+'</p>' : '') + (s.note ? '<p class="note">'+esc(s.note)+'</p>' : '') +
-          (s.location ? '<a class="loc" href="'+esc(mapLink(s.location))+'" target="_blank" rel="noopener">'+PIN+'<span>'+esc(s.location)+'</span></a>' : '') + '</div></li>';
+          (s.location ? '<a class="loc" href="'+esc(mapLink(s.location))+'" target="_blank" rel="noopener">'+PIN+'<span>'+esc(s.location)+'</span></a>' : '') +
+          filesHTML(files.filter(function(f){ return f.plan_id === s.id; })) + '</div></li>';
       }
       return '<li class="slot locked"><div class="time">'+esc(s.time_label)+'</div><div class="card"><span class="lock">'+LOCK+'</span><div><h2>Überraschung</h2></div></div></li>';
     }).join('');
     seenOpen = openIds;
   }
+
+  function filesHTML(list){
+    if (!list.length) return '';
+    return '<div class="files">' + list.map(function(f){
+      return '<button type="button" class="file" data-path="'+esc(f.path)+'">'+FILE_ICON+'<span>'+esc(f.name)+'</span></button>';
+    }).join('') + '</div>';
+  }
+
+  document.addEventListener('click', async function(e){
+    var b = e.target.closest('button.file'); if (!b) return;
+    var win = null;
+    try { win = window.open('', '_blank'); } catch (err) {}
+    b.disabled = true;
+    var res = await sb.storage.from('attachments').createSignedUrl(b.getAttribute('data-path'), 600);
+    b.disabled = false;
+    if (res.error || !res.data) { if (win) win.close(); alert('Die Datei kann gerade nicht geöffnet werden.'); return; }
+    if (win) win.location.href = res.data.signedUrl; else location.href = res.data.signedUrl;
+  });
 
   function renderPage(p){
     if (!p) return;
@@ -62,11 +84,12 @@
     if (p.variant === 'gut') { b.innerHTML = SUN_SMALL + '<span>Schönwetter-Programm</span>'; b.className = 'badge sunny'; b.hidden = false; }
     else if (p.variant === 'schlecht') { b.innerHTML = RAIN_SMALL + '<span>Schlechtwetter-Programm</span>'; b.className = 'badge rainy'; b.hidden = false; }
     else b.hidden = true;
+    if (p.weather_date && p.weather_date !== weatherLoadedFor) { BIRTHDAY = p.weather_date; loadWeather(); }
   }
 
   async function load(){
-    var r = await Promise.all([sb.rpc('public_slots_v3'), sb.rpc('public_page')]);
-    var slots = r[0], page = r[1];
+    var r = await Promise.all([sb.rpc('public_slots_v3'), sb.rpc('public_page'), sb.rpc('public_attachments')]);
+    var slots = r[0], page = r[1], files = r[2].error ? [] : (r[2].data || []);
     if (!page.error) {
       var pk = JSON.stringify(page.data);
       if (pk !== lastPage) { lastPage = pk; renderPage(page.data); }
@@ -75,10 +98,10 @@
       if (!lastKey) $('timeline').innerHTML = '<li class="status">Dein Tag kann gerade nicht geladen werden. Versuch es gleich nochmals.</li>';
       return;
     }
-    var key = JSON.stringify(slots.data);
+    var key = JSON.stringify([slots.data, files]);
     if (key === lastKey) return;
     lastKey = key;
-    render(slots.data || []);
+    render(slots.data || [], files);
   }
 
   /* ---------- Wetter Luzern (Open-Meteo, ohne Schlüssel) ---------- */
@@ -112,6 +135,8 @@
 
   async function loadWeather(){
     var box = $('weather');
+    weatherLoadedFor = BIRTHDAY;
+    var label = 'Wetter in Luzern am ' + shortDate(BIRTHDAY);
     try {
       var url = 'https://api.open-meteo.com/v1/forecast?latitude=47.05&longitude=8.31' +
         '&hourly=temperature_2m,weather_code,precipitation_probability,is_day' +
@@ -120,8 +145,8 @@
       var res = await fetch(url);
       var d = await res.json();
       if (!res.ok || d.error || !d.hourly) {
-        box.innerHTML = '<p class="w-head"><b>Wetter in Luzern am 27.11.</b></p>' +
-          '<p class="w-wait">Die stündliche Prognose erscheint hier, sobald der Tag in Reichweite der Vorhersage ist (etwa ab 12. November).</p>';
+        box.innerHTML = '<p class="w-head"><b>'+esc(label)+'</b></p>' +
+          '<p class="w-wait">Die stündliche Prognose erscheint hier, sobald der Tag in Reichweite der Vorhersage ist (etwa 16 Tage vorher).</p>';
         box.hidden = false;
         return;
       }
@@ -144,7 +169,7 @@
           '<span class="h-rain">'+(p == null ? '' : p + '%')+'</span></li>';
       });
       box.innerHTML = '<p class="w-head"><span class="w-icon">'+ICONS[day[1]]+'</span>'+
-          '<span><b>Wetter in Luzern am 27.11.</b><span>'+day[0]+', '+Math.round(d.daily.temperature_2m_min[0])+'° bis '+Math.round(d.daily.temperature_2m_max[0])+'°</span></span></p>'+
+          '<span><b>'+esc(label)+'</b><span>'+day[0]+', '+Math.round(d.daily.temperature_2m_min[0])+'° bis '+Math.round(d.daily.temperature_2m_max[0])+'°</span></span></p>'+
         '<ol class="hours" aria-label="Stündliche Prognose">'+hours+'</ol>'+
         '<p class="w-note">Prozent = Regenwahrscheinlichkeit</p>';
       box.hidden = false;
@@ -156,7 +181,7 @@
   }
 
   load();
-  loadWeather();
+  setTimeout(function(){ if (!weatherLoadedFor) loadWeather(); }, 3000);
   setInterval(load, 20000);
   setInterval(loadWeather, 15 * 60 * 1000);
   document.addEventListener('visibilitychange', function(){ if (!document.hidden) load(); });
