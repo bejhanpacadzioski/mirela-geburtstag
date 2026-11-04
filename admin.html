@@ -7,7 +7,7 @@
 <title>Steuerung · Mirelas Tag</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=18">
+<link rel="stylesheet" href="style.css?v=19">
 </head>
 <body>
 <main class="wrap">
@@ -31,14 +31,17 @@
       <div class="extra-head"><h2>Mirelas Wahl</h2><span class="chip" id="choiceChip">–</span></div>
       <p class="choice-status" id="choiceStatus"></p>
       <div class="field"><label for="c-open">Wahl öffnet am <span class="opt">leer lassen, um die Wahl auszuschalten</span></label>
-        <div class="inline"><input id="c-open" type="datetime-local"><button type="button" class="ghost" id="choiceOpenSave">Speichern</button></div></div>
+        <input id="c-open" type="datetime-local"></div>
+      <div class="field"><label for="c-close">Wählen möglich bis <span class="opt">leer lassen für kein Ablaufdatum</span></label>
+        <input id="c-close" type="datetime-local"></div>
+      <div class="actions"><button type="button" class="ghost" id="choiceOpenSave">Zeitraum speichern</button></div>
       <div class="actions"><button type="button" class="danger" id="choiceReset">Wahl zurücksetzen</button></div>
       <details class="opts-edit">
         <summary>Überschrift und Texte der Wahl bearbeiten</summary>
         <form id="choiceTextForm" class="editor">
           <div class="field"><label for="ct-heading">Überschrift</label><input id="ct-heading" maxlength="80" required></div>
           <div class="field"><label for="ct-open">Text, wenn die Wahl offen ist</label><textarea id="ct-open" rows="3"></textarea></div>
-          <div class="field"><label for="ct-wait">Text vor dem Öffnen <span class="opt">{datum} wird durch Datum und Uhrzeit ersetzt</span></label><textarea id="ct-wait" rows="2"></textarea></div>
+          <div class="field"><label for="ct-closed">Text, wenn die Zeit abgelaufen ist <span class="opt">falls sie nicht gewählt hat</span></label><textarea id="ct-closed" rows="2"></textarea></div>
           <div class="actions"><button type="submit" id="choiceTextSave">Texte speichern</button></div>
         </form>
       </details>
@@ -110,7 +113,7 @@
   </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=18"></script>
+<script src="config.js?v=19"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -212,7 +215,7 @@
     }).join('');
     var shared = items.filter(function(x){ return x.program === 'beide'; }).length;
     var own = items.filter(function(x){ return x.program === variant; }).length;
-    var pending = choiceState.open_at && !choiceState.choice;
+    var pending = choiceState.open_at && !choiceState.choice && !(choiceState.close_at && new Date(choiceState.close_at) <= new Date());
     $('switchHint').textContent = pending
       ? 'Solange Mirela nicht gewählt hat, sieht sie nur die ' + shared + ' gemeinsamen Punkte. Ihre Wahl setzt das Programm automatisch.'
       : 'Mirela sieht jetzt das Programm ' + VLABEL[variant] + ': ' + shared + ' gemeinsame und ' + own + ' eigene Punkte.';
@@ -236,12 +239,17 @@
       st.textContent = 'Die Wahl ist ausgeschaltet. Mirela sieht das aktive Programm direkt.';
     } else if (new Date(c.open_at) > new Date()) {
       chip.textContent = 'Geplant'; chip.className = 'chip';
-      st.textContent = 'Die Wahl öffnet am ' + fmtDateTime(c.open_at) + '. Bis dahin sieht Mirela die drei Karten mit Countdown.';
+      st.textContent = 'Die Wahl öffnet am ' + fmtDateTime(c.open_at) + '. Bis dahin sieht Mirela nur die Überschrift.' +
+        (c.close_at ? ' Wählen kann sie bis ' + fmtDateTime(c.close_at) + '.' : '');
+    } else if (c.close_at && new Date(c.close_at) <= new Date()) {
+      chip.textContent = 'Abgelaufen'; chip.className = 'chip';
+      st.innerHTML = 'Die Zeit ist abgelaufen, ohne dass Mirela gewählt hat. Sie sieht jetzt das aktive Programm <b>' + esc(VLABEL[variant]) + '</b>.';
     } else {
       chip.textContent = 'Offen'; chip.className = 'chip on';
-      st.textContent = 'Die Wahl ist offen. Mirela hat noch nicht gewählt.';
+      st.textContent = 'Die Wahl ist offen. Mirela hat noch nicht gewählt.' + (c.close_at ? ' Sie hat Zeit bis ' + fmtDateTime(c.close_at) + '.' : '');
     }
     if (document.activeElement !== $('c-open')) $('c-open').value = toLocalInput(c.open_at);
+    if (document.activeElement !== $('c-close')) $('c-close').value = toLocalInput(c.close_at);
     $('choiceReset').hidden = !c.choice;
     $('choiceReset').disabled = busy;
     $('choiceOpenSave').disabled = busy;
@@ -352,10 +360,11 @@
         if (s.key === 'choice') choiceState.choice = s.value || null;
         if (s.key === 'choice_at') choiceState.choice_at = s.value || null;
         if (s.key === 'choice_open_at') choiceState.open_at = s.value || null;
+        if (s.key === 'choice_close_at') choiceState.close_at = s.value || null;
         if (!choiceTextDirty) {
           if (s.key === 'choice_heading') $('ct-heading').value = s.value;
           if (s.key === 'choice_text_open') $('ct-open').value = s.value;
-          if (s.key === 'choice_text_wait') $('ct-wait').value = s.value;
+          if (s.key === 'choice_text_closed') $('ct-closed').value = s.value;
         }
         if (s.key === 'title' && !textDirty) $('t-title').value = s.value;
         if (s.key === 'subtitle' && !textDirty) $('t-subtitle').value = s.value;
@@ -465,22 +474,30 @@
         'Umgeschaltet auf ' + VLABEL[v] + '. Mirela sieht es gleich.');
   });
 
+  function inputToIso(v){
+    if (!v) return '';
+    var d = new Date(v); if (isNaN(d)) return null;
+    return d.toISOString().replace(/\.\d{3}Z$/, 'Z');
+  }
   $('choiceOpenSave').addEventListener('click', function(){
-    var v = $('c-open').value, iso = '';
-    if (v) { var d = new Date(v); if (isNaN(d)) { say($('msg'), 'Bitte ein gültiges Datum wählen.', true); return; } iso = d.toISOString().replace(/\.\d{3}Z$/, 'Z'); }
-    run([function(){ return sb.from('settings').update({ value: iso }).eq('key', 'choice_open_at'); }],
-        iso ? 'Die Wahl öffnet am ' + fmtDateTime(iso) + '.' : 'Die Wahl ist ausgeschaltet.');
+    var o = inputToIso($('c-open').value), c = inputToIso($('c-close').value);
+    if (o === null || c === null) { say($('msg'), 'Bitte gültige Daten wählen.', true); return; }
+    if (o && c && new Date(c) <= new Date(o)) { say($('msg'), 'Das Ablaufdatum muss nach dem Öffnungsdatum liegen.', true); return; }
+    run([
+      function(){ return sb.from('settings').update({ value: o }).eq('key', 'choice_open_at'); },
+      function(){ return sb.from('settings').update({ value: c }).eq('key', 'choice_close_at'); }
+    ], o ? 'Zeitraum gespeichert: ' + fmtDateTime(o) + (c ? ' bis ' + fmtDateTime(c) : '') + '.' : 'Die Wahl ist ausgeschaltet.');
   });
   $('choiceTextForm').addEventListener('input', function(){ choiceTextDirty = true; });
   $('choiceTextForm').addEventListener('submit', function(e){
     e.preventDefault();
-    var hd = $('ct-heading').value.trim(), op = $('ct-open').value.trim(), wt = $('ct-wait').value.trim();
+    var hd = $('ct-heading').value.trim(), op = $('ct-open').value.trim(), wt = $('ct-closed').value.trim();
     if (!hd) { say($('msg'), 'Die Überschrift darf nicht leer sein.', true); return; }
     choiceTextDirty = false;
     run([
       function(){ return sb.from('settings').update({ value: hd }).eq('key', 'choice_heading'); },
       function(){ return sb.from('settings').update({ value: op }).eq('key', 'choice_text_open'); },
-      function(){ return sb.from('settings').update({ value: wt }).eq('key', 'choice_text_wait'); }
+      function(){ return sb.from('settings').update({ value: wt }).eq('key', 'choice_text_closed'); }
     ], 'Texte der Wahl gespeichert.');
   });
   $('choiceReset').addEventListener('click', function(){

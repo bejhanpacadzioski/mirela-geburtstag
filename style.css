@@ -274,3 +274,7 @@ canvas.confetti.on{display:block}
 .has-cover .pick-front .pick-actions{margin-top:4px}
 .pick-num{margin:0!important;font-size:11px!important;letter-spacing:.14em;text-transform:uppercase;font-weight:600;color:var(--gold)!important}
 .pick-num + h3{margin-top:-4px}
+.deadline{margin:0;display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 12px;padding:10px 12px;border-radius:10px;background:var(--gold-soft);font-size:14px;color:var(--ink)}
+.deadline-left{font-variant-numeric:tabular-nums;color:var(--gold)}
+.deadline-left b{font-weight:600}
+.choice.is-waiting{border-style:dashed}
