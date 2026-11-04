@@ -7,7 +7,7 @@
 <title>Steuerung · Mirelas Tag</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=10">
+<link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
 <main class="wrap">
@@ -92,7 +92,7 @@
   </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=10"></script>
+<script src="config.js?v=11"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -129,11 +129,13 @@
       fieldHTML('f-place', 'Untertitel', 'optional', '<input id="f-place" value="'+esc(it.place)+'">')+
       fieldHTML('f-note', 'Beschreibung', 'optional', '<textarea id="f-note" rows="3">'+esc(it.note)+'</textarea>')+
       fieldHTML('f-location', 'Ort', 'optional, erscheint als Kartenlink', '<input id="f-location" placeholder="z. B. Furrengasse 6, 6004 Luzern" value="'+esc(it.location)+'">')+
+      fieldHTML('f-link', 'Link für mich', 'optional, z. B. Reservierung. Mirela sieht ihn nie.', '<input id="f-link" type="url" inputmode="url" placeholder="https://…" value="'+esc(it.admin_link)+'">')+
       '<div class="actions"><button type="submit"'+(busy?' disabled':'')+'>Speichern</button>'+
       '<button type="button" class="ghost" data-act="cancel">Abbrechen</button>'+del+'</div>'+
     '</form>';
   }
 
+  function linkLabel(u){ try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return 'Link öffnen'; } }
   function fmtSize(b){ if (!b) return ''; return b > 1048576 ? (b/1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(b/1024)) + ' KB'; }
   function filesAdminHTML(it){
     var list = files.filter(function(f){ return f.plan_id === it.id; });
@@ -224,6 +226,7 @@
           (it.place ? '<p class="entry-sub">'+esc(it.place)+'</p>' : '')+
           (it.note ? '<p class="entry-note">'+esc(it.note)+'</p>' : '')+
           (it.location ? '<p class="entry-loc">Ort: '+esc(it.location)+'</p>' : '')+
+          (it.admin_link ? '<a class="entry-link" href="'+esc(it.admin_link)+'" target="_blank" rel="noopener">'+esc(linkLabel(it.admin_link))+' ↗</a>' : '')+
           filesAdminHTML(it))+
         (open ? editorHTML(it) :
           '<div class="entry-actions">'+
@@ -302,8 +305,10 @@
       title: val('f-title'),
       place: val('f-place') || null,
       location: val('f-location') || null,
-      note: val('f-note') || null
+      note: val('f-note') || null,
+      admin_link: val('f-link') || null
     };
+    if (data.admin_link && !/^https?:\/\//i.test(data.admin_link)) data.admin_link = 'https://' + data.admin_link;
     if (!data.time_label || !data.title) { say($('msg'), 'Uhrzeit und Titel braucht jeder Eintrag.', true); return; }
     var ok;
     if (editing === 'new') {

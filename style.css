@@ -177,3 +177,7 @@ button.icon.x.sure{color:var(--danger);border-color:var(--danger)}
 .pgrid li{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;background:var(--line)}
 .pgrid img{width:100%;height:100%;object-fit:cover;display:block}
 .pgrid button.icon.x{position:absolute;top:4px;right:4px;margin:0;padding:2px 8px;background:var(--card);font-size:13px}
+/* Zeilenumbrüche in Beschreibungen */
+.card .note,.entry-note{white-space:pre-line}
+.entry-link{align-self:flex-start;font-size:14px;font-weight:600;color:var(--lake);text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}
+.entry-link:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
