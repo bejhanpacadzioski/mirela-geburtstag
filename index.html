@@ -7,7 +7,7 @@
 <title>Alles Gute, Mirela</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=7">
+<link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
 <main class="wrap">
@@ -15,17 +15,15 @@
     <p class="eyebrow">Freitag, 27. November 2026 · Luzern</p>
     <h1 id="pageTitle">Alles Gute, Mirela</h1>
     <p class="lede" id="pageSubtitle">Heute gehört dir. Was wir vorhaben, erfährst du erst, wenn es so weit ist.</p>
-    <div class="infobar">
-      <span class="badge" id="variantBadge" hidden></span>
-      <div class="weather" id="weather" hidden></div>
-    </div>
+    <div class="infobar"><span class="badge" id="variantBadge" hidden></span></div>
+    <section class="weather" id="weather" hidden></section>
     <div class="progress"><div class="bar"><span id="bar"></span></div><span id="count"></span></div>
   </header>
   <ol class="timeline" id="timeline"><li class="status">Dein Tag wird geladen …</li></ol>
   <p class="sign">Von Bejhan, mit Liebe.</p>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=7"></script>
+<script src="config.js?v=8"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -109,30 +107,51 @@
     if (code >= 95) return ['Gewitter', 'storm'];
     return ['Wetter', 'cloud'];
   }
+  ICONS.moon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 3.5a8.5 8.5 0 1 0 5 13.6A7 7 0 0 1 15.5 3.5Z" fill="currentColor"/></svg>';
+  var FIRST_HOUR = 7, LAST_HOUR = 22;
+
   async function loadWeather(){
+    var box = $('weather');
     try {
       var url = 'https://api.open-meteo.com/v1/forecast?latitude=47.05&longitude=8.31' +
-        '&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min' +
-        '&timezone=Europe%2FZurich&forecast_days=16';
+        '&hourly=temperature_2m,weather_code,precipitation_probability,is_day' +
+        '&daily=weather_code,temperature_2m_max,temperature_2m_min' +
+        '&timezone=Europe%2FZurich&start_date=' + BIRTHDAY + '&end_date=' + BIRTHDAY;
       var res = await fetch(url);
-      if (!res.ok) throw new Error('http');
       var d = await res.json();
-      var now = wmo(d.current.weather_code);
-      var html = '<span class="w-icon">'+ICONS[now[1]]+'</span>'+
-        '<span class="w-text"><b>Luzern jetzt · '+Math.round(d.current.temperature_2m)+'°</b><span>'+now[0]+'</span></span>';
-      var idx = d.daily.time.indexOf(BIRTHDAY);
-      var today = d.daily.time[0];
-      if (idx > 0 && today !== BIRTHDAY) {
-        var f = wmo(d.daily.weather_code[idx]);
-        html += '<span class="w-forecast">Prognose 27.11.: '+f[0]+', '+Math.round(d.daily.temperature_2m_min[idx])+'° bis '+Math.round(d.daily.temperature_2m_max[idx])+'°</span>';
-      } else if (today === BIRTHDAY) {
-        var t = wmo(d.daily.weather_code[0]);
-        html += '<span class="w-forecast">Heute: '+t[0]+', '+Math.round(d.daily.temperature_2m_min[0])+'° bis '+Math.round(d.daily.temperature_2m_max[0])+'°</span>';
+      if (!res.ok || d.error || !d.hourly) {
+        box.innerHTML = '<p class="w-head"><b>Wetter in Luzern am 27.11.</b></p>' +
+          '<p class="w-wait">Die stündliche Prognose erscheint hier, sobald der Tag in Reichweite der Vorhersage ist (etwa ab 12. November).</p>';
+        box.hidden = false;
+        return;
       }
-      $('weather').innerHTML = html;
-      $('weather').hidden = false;
+      var day = wmo(d.daily.weather_code[0]);
+      var nowHour = null;
+      var n = new Date();
+      var todayLocal = n.toLocaleDateString('sv-SE', { timeZone: 'Europe/Zurich' });
+      if (todayLocal === BIRTHDAY) nowHour = Number(n.toLocaleString('en-GB', { timeZone: 'Europe/Zurich', hour: '2-digit', hour12: false }));
+      var hours = '';
+      d.hourly.time.forEach(function(t, i){
+        var hr = Number(t.slice(11, 13));
+        if (hr < FIRST_HOUR || hr > LAST_HOUR) return;
+        var w = wmo(d.hourly.weather_code[i]);
+        var icon = (!d.hourly.is_day[i] && w[1] === 'sun') ? 'moon' : w[1];
+        var p = d.hourly.precipitation_probability[i];
+        hours += '<li class="hour'+(hr === nowHour ? ' now' : '')+'" title="'+esc(w[0])+'">'+
+          '<span class="h-time">'+(hr === nowHour ? 'Jetzt' : t.slice(11, 16))+'</span>'+
+          '<span class="h-icon">'+ICONS[icon]+'</span>'+
+          '<span class="h-temp">'+Math.round(d.hourly.temperature_2m[i])+'°</span>'+
+          '<span class="h-rain">'+(p == null ? '' : p + '%')+'</span></li>';
+      });
+      box.innerHTML = '<p class="w-head"><span class="w-icon">'+ICONS[day[1]]+'</span>'+
+          '<span><b>Wetter in Luzern am 27.11.</b><span>'+day[0]+', '+Math.round(d.daily.temperature_2m_min[0])+'° bis '+Math.round(d.daily.temperature_2m_max[0])+'°</span></span></p>'+
+        '<ol class="hours" aria-label="Stündliche Prognose">'+hours+'</ol>'+
+        '<p class="w-note">Prozent = Regenwahrscheinlichkeit</p>';
+      box.hidden = false;
+      var cur = box.querySelector('.hour.now');
+      if (cur) cur.parentNode.scrollLeft = cur.offsetLeft - 16;
     } catch (e) {
-      $('weather').hidden = true;
+      box.hidden = true;
     }
   }
 
