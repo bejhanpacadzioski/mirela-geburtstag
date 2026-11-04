@@ -7,36 +7,44 @@
 <title>Alles Gute, Mirela</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=6">
+<link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
 <main class="wrap">
   <header>
     <p class="eyebrow">Freitag, 27. November 2026 · Luzern</p>
-    <h1>Alles Gute, Mirela</h1>
-    <p class="lede">Heute gehört dir. Was wir vorhaben, erfährst du erst, wenn es so weit ist.</p>
+    <h1 id="pageTitle">Alles Gute, Mirela</h1>
+    <p class="lede" id="pageSubtitle">Heute gehört dir. Was wir vorhaben, erfährst du erst, wenn es so weit ist.</p>
+    <div class="infobar">
+      <span class="badge" id="variantBadge" hidden></span>
+      <div class="weather" id="weather" hidden></div>
+    </div>
     <div class="progress"><div class="bar"><span id="bar"></span></div><span id="count"></span></div>
   </header>
   <ol class="timeline" id="timeline"><li class="status">Dein Tag wird geladen …</li></ol>
   <p class="sign">Von Bejhan, mit Liebe.</p>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=6"></script>
+<script src="config.js?v=7"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+  var BIRTHDAY = '2026-11-27';
   var LOCK = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="currentColor"/><path d="M5 7V5a3 3 0 0 1 6 0v2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>';
   var PIN = '<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5a4.5 4.5 0 0 0-4.5 4.5c0 3.4 4.5 8.5 4.5 8.5s4.5-5.1 4.5-8.5A4.5 4.5 0 0 0 8 1.5Zm0 6.2a1.7 1.7 0 1 1 0-3.4 1.7 1.7 0 0 1 0 3.4Z" fill="currentColor"/></svg>';
-  var lastKey = '', seenOpen = null;
-  function mapLink(q){ return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q); }
-  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+  var lastKey = '', lastPage = '', seenOpen = null;
 
+  function $(id){ return document.getElementById(id); }
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+  function mapLink(q){ return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q); }
+
+  /* ---------- Programm ---------- */
   function render(slots){
     var open = slots.filter(function(s){return s.revealed});
     var openIds = open.map(function(s){return s.id});
-    document.getElementById('bar').style.width = (slots.length ? Math.round(open.length/slots.length*100) : 0) + '%';
-    document.getElementById('count').textContent = open.length + ' von ' + slots.length + ' Momenten enthüllt';
-    document.getElementById('timeline').innerHTML = slots.map(function(s){
+    $('bar').style.width = (slots.length ? Math.round(open.length/slots.length*100) : 0) + '%';
+    $('count').textContent = open.length + ' von ' + slots.length + ' Momenten enthüllt';
+    $('timeline').innerHTML = slots.map(function(s){
       if (s.revealed) {
         var fresh = seenOpen && seenOpen.indexOf(s.id) === -1 ? ' fresh' : '';
         return '<li class="slot open'+fresh+'"><div class="time">'+esc(s.time_label)+'</div><div class="card"><h2>'+esc(s.title)+'</h2>'+
@@ -48,20 +56,90 @@
     seenOpen = openIds;
   }
 
+  function renderPage(p){
+    if (!p) return;
+    if (p.title) { $('pageTitle').textContent = p.title; document.title = p.title; }
+    if (p.subtitle != null) { $('pageSubtitle').textContent = p.subtitle; $('pageSubtitle').hidden = !p.subtitle; }
+    var b = $('variantBadge');
+    if (p.variant === 'gut') { b.innerHTML = SUN_SMALL + '<span>Schönwetter-Programm</span>'; b.className = 'badge sunny'; b.hidden = false; }
+    else if (p.variant === 'schlecht') { b.innerHTML = RAIN_SMALL + '<span>Schlechtwetter-Programm</span>'; b.className = 'badge rainy'; b.hidden = false; }
+    else b.hidden = true;
+  }
+
   async function load(){
-    var res = await sb.rpc('public_slots_v3');
-    if (res.error) {
-      if (!lastKey) document.getElementById('timeline').innerHTML = '<li class="status">Dein Tag kann gerade nicht geladen werden. Versuch es gleich nochmals.</li>';
+    var r = await Promise.all([sb.rpc('public_slots_v3'), sb.rpc('public_page')]);
+    var slots = r[0], page = r[1];
+    if (!page.error) {
+      var pk = JSON.stringify(page.data);
+      if (pk !== lastPage) { lastPage = pk; renderPage(page.data); }
+    }
+    if (slots.error) {
+      if (!lastKey) $('timeline').innerHTML = '<li class="status">Dein Tag kann gerade nicht geladen werden. Versuch es gleich nochmals.</li>';
       return;
     }
-    var key = JSON.stringify(res.data);
+    var key = JSON.stringify(slots.data);
     if (key === lastKey) return;
     lastKey = key;
-    render(res.data || []);
+    render(slots.data || []);
+  }
+
+  /* ---------- Wetter Luzern (Open-Meteo, ohne Schlüssel) ---------- */
+  var SUN_SMALL = '<svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5" fill="currentColor"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1"/></g></svg>';
+  var RAIN_SMALL = '<svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 15a5 5 0 1 1 1.2-9.9A6 6 0 0 1 19 9a4 4 0 0 1-1 7.9H7Z" fill="currentColor"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 19l-1 3M13 19l-1 3M17 19l-1 3"/></g></svg>';
+  var ICONS = {
+    sun: SUN_SMALL,
+    partly: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="9" r="4" fill="var(--gold)"/><path d="M8 19a4.5 4.5 0 1 1 1.4-8.8A5.5 5.5 0 0 1 19.5 13a3.5 3.5 0 0 1-.5 6.9H8Z" fill="currentColor"/></svg>',
+    cloud: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 19a5 5 0 1 1 1.2-9.9A6 6 0 0 1 19 13a3.5 3.5 0 0 1-1 6.9H7Z" fill="currentColor"/></svg>',
+    fog: '<svg viewBox="0 0 24 24" aria-hidden="true"><g stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 8h18M5 12h14M3 16h18M7 20h10"/></g></svg>',
+    rain: RAIN_SMALL,
+    snow: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 14a5 5 0 1 1 1.2-9.9A6 6 0 0 1 19 8a4 4 0 0 1-1 7.9H7Z" fill="currentColor"/><g fill="currentColor"><circle cx="8" cy="20" r="1.4"/><circle cx="12" cy="21.5" r="1.4"/><circle cx="16" cy="20" r="1.4"/></g></svg>',
+    storm: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 14a5 5 0 1 1 1.2-9.9A6 6 0 0 1 19 8a4 4 0 0 1-1 7.9H7Z" fill="currentColor"/><path d="M13 14l-3 5h3l-2 4" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+  };
+  function wmo(code){
+    if (code === 0) return ['Klar', 'sun'];
+    if (code === 1) return ['Überwiegend sonnig', 'sun'];
+    if (code === 2) return ['Teilweise bewölkt', 'partly'];
+    if (code === 3) return ['Bedeckt', 'cloud'];
+    if (code === 45 || code === 48) return ['Nebel', 'fog'];
+    if (code >= 51 && code <= 57) return ['Nieselregen', 'rain'];
+    if (code >= 61 && code <= 67) return ['Regen', 'rain'];
+    if (code >= 71 && code <= 77) return ['Schnee', 'snow'];
+    if (code >= 80 && code <= 82) return ['Regenschauer', 'rain'];
+    if (code === 85 || code === 86) return ['Schneeschauer', 'snow'];
+    if (code >= 95) return ['Gewitter', 'storm'];
+    return ['Wetter', 'cloud'];
+  }
+  async function loadWeather(){
+    try {
+      var url = 'https://api.open-meteo.com/v1/forecast?latitude=47.05&longitude=8.31' +
+        '&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min' +
+        '&timezone=Europe%2FZurich&forecast_days=16';
+      var res = await fetch(url);
+      if (!res.ok) throw new Error('http');
+      var d = await res.json();
+      var now = wmo(d.current.weather_code);
+      var html = '<span class="w-icon">'+ICONS[now[1]]+'</span>'+
+        '<span class="w-text"><b>Luzern jetzt · '+Math.round(d.current.temperature_2m)+'°</b><span>'+now[0]+'</span></span>';
+      var idx = d.daily.time.indexOf(BIRTHDAY);
+      var today = d.daily.time[0];
+      if (idx > 0 && today !== BIRTHDAY) {
+        var f = wmo(d.daily.weather_code[idx]);
+        html += '<span class="w-forecast">Prognose 27.11.: '+f[0]+', '+Math.round(d.daily.temperature_2m_min[idx])+'° bis '+Math.round(d.daily.temperature_2m_max[idx])+'°</span>';
+      } else if (today === BIRTHDAY) {
+        var t = wmo(d.daily.weather_code[0]);
+        html += '<span class="w-forecast">Heute: '+t[0]+', '+Math.round(d.daily.temperature_2m_min[0])+'° bis '+Math.round(d.daily.temperature_2m_max[0])+'°</span>';
+      }
+      $('weather').innerHTML = html;
+      $('weather').hidden = false;
+    } catch (e) {
+      $('weather').hidden = true;
+    }
   }
 
   load();
+  loadWeather();
   setInterval(load, 20000);
+  setInterval(loadWeather, 15 * 60 * 1000);
   document.addEventListener('visibilitychange', function(){ if (!document.hidden) load(); });
 })();
 </script>

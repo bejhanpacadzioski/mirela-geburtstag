@@ -7,7 +7,7 @@
 <title>Steuerung · Mirelas Tag</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=6">
+<link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
 <main class="wrap">
@@ -36,6 +36,15 @@
       <p class="switch-hint" id="switchHint"></p>
     </div>
 
+    <details class="texts" id="textsBox">
+      <summary>Titel und Untertitel von Mirelas Seite</summary>
+      <form id="textForm" class="editor">
+        <div class="field"><label for="t-title">Titel</label><input id="t-title" required maxlength="80"></div>
+        <div class="field"><label for="t-subtitle">Untertitel <span class="opt">optional</span></label><textarea id="t-subtitle" rows="2" maxlength="240"></textarea></div>
+        <div class="actions"><button type="submit" id="textSave">Texte speichern</button></div>
+      </form>
+    </details>
+
     <div class="filterbar" role="group" aria-label="Anzeige">
       <span>Liste zeigt</span>
       <button type="button" class="pill" id="f-active" data-filter="active">Aktives Programm</button>
@@ -62,12 +71,12 @@
   </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=6"></script>
+<script src="config.js?v=7"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
   var items = [], busy = false, editing = null, confirmDel = null;
-  var variant = 'schlecht', filter = 'active';
+  var variant = 'schlecht', filter = 'active', textDirty = false;
   var VLABEL = { beide: 'Beide', gut: 'Schönwetter', schlecht: 'Schlechtwetter' };
 
   try { if (localStorage.getItem('adminFilter') === 'all') filter = 'all'; } catch (e) {}
@@ -154,8 +163,14 @@
     var r1 = await sb.from('plan').select('*').order('sort').order('time_label');
     if (r1.error) { say($('msg'), 'Die Einträge konnten nicht geladen werden: ' + r1.error.message, true); return; }
     items = r1.data || [];
-    var r2 = await sb.from('settings').select('value').eq('key', 'variant').maybeSingle();
-    if (!r2.error && r2.data) variant = r2.data.value;
+    var r2 = await sb.from('settings').select('key,value');
+    if (!r2.error && r2.data) {
+      r2.data.forEach(function(s){
+        if (s.key === 'variant') variant = s.value;
+        if (s.key === 'title' && !textDirty) $('t-title').value = s.value;
+        if (s.key === 'subtitle' && !textDirty) $('t-subtitle').value = s.value;
+      });
+    }
     render();
   }
 
@@ -245,6 +260,20 @@
     filter = b.getAttribute('data-filter');
     try { localStorage.setItem('adminFilter', filter); } catch (err) {}
     editing = null; confirmDel = null; render();
+  });
+
+  $('t-title').addEventListener('input', function(){ textDirty = true; });
+  $('t-subtitle').addEventListener('input', function(){ textDirty = true; });
+  $('textForm').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var t = $('t-title').value.trim(), st = $('t-subtitle').value.trim();
+    if (!t) { say($('msg'), 'Der Titel darf nicht leer sein.', true); return; }
+    textDirty = false;
+    var ok = await run([
+      function(){ return sb.from('settings').update({ value: t }).eq('key', 'title'); },
+      function(){ return sb.from('settings').update({ value: st }).eq('key', 'subtitle'); }
+    ], 'Titel und Untertitel gespeichert.');
+    if (ok) $('textsBox').open = false;
   });
 
   $('addNew').addEventListener('click', function(){
