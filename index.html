@@ -7,7 +7,7 @@
 <title>Alles Gute, Mirela</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=12">
+<link rel="stylesheet" href="style.css?v=13">
 </head>
 <body>
 <main class="wrap">
@@ -19,14 +19,16 @@
     <section class="weather" id="weather" hidden></section>
     <div class="progress"><div class="bar"><span id="bar"></span></div><span id="count"></span></div>
   </header>
+  <section class="choice" id="choice" hidden aria-labelledby="choiceTitle"></section>
   <ol class="timeline" id="timeline"><li class="status">Dein Tag wird geladen …</li></ol>
   <section class="letter" id="letter" hidden></section>
   <section class="album" id="album" hidden></section>
   <p class="sign">Von Bejhan, mit Liebe.</p>
 </main>
+<canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=12"></script>
+<script src="config.js?v=13"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -118,6 +120,7 @@
     toastTimer = setTimeout(function(){ t.classList.remove('show'); setTimeout(function(){ t.hidden = true; }, 400); }, 5000);
   }
 
+  var choicePending = false, choiceOpenNow = false;
   function render(slots, files){
     files = files || [];
     var open = slots.filter(function(s){return s.revealed});
@@ -126,7 +129,7 @@
     var newly = seenOpen ? open.filter(function(s){ return seenOpen.indexOf(s.id) === -1; }) : [];
     $('bar').style.width = (slots.length ? Math.round(open.length/slots.length*100) : 0) + '%';
     $('count').textContent = open.length + ' von ' + slots.length + ' Momenten enthüllt';
-    $('timeline').innerHTML = slots.map(function(s){
+    var list = slots.map(function(s){
       if (s.revealed) {
         var fresh = seenOpen && seenOpen.indexOf(s.id) === -1 ? ' fresh' : '';
         var cover = scratched.indexOf(s.id) === -1 ? ' data-scratch="'+esc(s.id)+'"' : '';
@@ -136,7 +139,13 @@
           filesHTML(files.filter(function(f){ return f.plan_id === s.id; })) + '</div></li>';
       }
       return '<li class="slot locked"><div class="time">'+esc(s.time_label)+'</div><div class="card"><span class="lock">'+LOCK+'</span><div><h2>Überraschung</h2></div></div></li>';
-    }).join('');
+    });
+    if (choicePending && list.length) {
+      list.splice(list.length - 1, 0,
+        '<li class="slot decide"><div class="time">Nachmittag</div><div class="card"><span class="lock">'+ICON_DICE+'</span><div><h2>Du entscheidest</h2>'+
+        '<p class="note">'+(choiceOpenNow ? 'Wähl oben, wie unser Nachmittag aussieht.' : 'Bald darfst du oben wählen, wie unser Nachmittag aussieht.')+'</p></div></div></li>');
+    }
+    $('timeline').innerHTML = list.join('');
     Array.prototype.forEach.call(document.querySelectorAll('[data-scratch]'), function(card){
       attachScratch(card, card.getAttribute('data-scratch'));
     });
@@ -212,14 +221,234 @@
     albumWasOpen = true;
   }
 
+  /* ---------- Die Wahl ---------- */
+  var ICON_DICE = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="5.5" cy="5.5" r="1.2" fill="currentColor"/><circle cx="10.5" cy="10.5" r="1.2" fill="currentColor"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/></svg>';
+  var OPT_ICONS = {
+    pilatus: '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M3 40 18 14l8 12 5-7 14 21Z" fill="currentColor" opacity=".9"/><path d="M18 14l-4.6 8 3-1.4 2.2 2.2 2.4-2.6 2.7 1.2Z" fill="var(--card)"/><circle cx="37" cy="10" r="4" fill="var(--gold)"/></svg>',
+    schiff:  '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 28h32l-4 8H12Z" fill="currentColor"/><path d="M14 28v-7h18v7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/><path d="M22 21v-7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="22" cy="11" r="2.6" fill="var(--gold)"/><path d="M4 41c4 0 4-2.5 8-2.5s4 2.5 8 2.5 4-2.5 8-2.5 4 2.5 8 2.5 4-2.5 8-2.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".55"/></svg>',
+    escape:  '<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="9" y="20" width="30" height="22" rx="4" fill="currentColor"/><path d="M15 20v-5a9 9 0 0 1 18 0v5" fill="none" stroke="currentColor" stroke-width="3.2"/><circle cx="24" cy="29" r="3.4" fill="var(--gold)"/><path d="M24 31v6" stroke="var(--gold)" stroke-width="3" stroke-linecap="round"/></svg>'
+  };
+  var choiceData = null, choiceKey = '', serverOffset = 0, countdownTimer = null, selected = null, choosing = false;
+
+  function fmtOpen(iso){
+    try { return new Date(iso).toLocaleString('de-CH', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) + ' Uhr'; }
+    catch (e) { return ''; }
+  }
+  function nowServer(){ return new Date(Date.now() + serverOffset); }
+  function countdownText(ms){
+    var s = Math.max(0, Math.floor(ms / 1000));
+    var d = Math.floor(s / 86400), hh = Math.floor(s % 86400 / 3600), mm = Math.floor(s % 3600 / 60), ss = s % 60;
+    function p(n){ return String(n).padStart(2, '0'); }
+    if (d > 0) return d + (d === 1 ? ' Tag ' : ' Tage ') + p(hh) + ':' + p(mm) + ':' + p(ss);
+    return p(hh) + ':' + p(mm) + ':' + p(ss);
+  }
+  function optByKey(k){ return (choiceData && choiceData.options || []).find(function(o){ return o.key === k; }); }
+
+  function cardHTML(o, enabled){
+    var sel = selected === o.key;
+    return '<li class="pick'+(sel ? ' selected' : '')+'" data-key="'+esc(o.key)+'">'+
+      '<div class="pick-inner">'+
+        '<div class="pick-face pick-front">'+
+          '<span class="pick-icon">'+(OPT_ICONS[o.key] || '')+'</span>'+
+          '<h3>'+esc(o.teaser)+'</h3>'+
+          (o.hint ? '<p>'+esc(o.hint)+'</p>' : '')+
+          '<div class="pick-actions">'+
+            '<button type="button" class="pick-more" data-flip>Mehr erfahren</button>'+
+            (enabled ? '<button type="button" class="pick-select" data-select aria-pressed="'+sel+'">'+(sel ? 'Ausgewählt' : 'Auswählen')+'</button>' : '')+
+          '</div>'+
+        '</div>'+
+        '<div class="pick-face pick-back" aria-hidden="true">'+
+          '<p class="pick-kicker">'+esc(o.teaser)+'</p>'+
+          '<h3>'+esc(o.title || o.label)+'</h3>'+
+          (o.details ? '<p>'+esc(o.details)+'</p>' : '')+
+          '<div class="pick-actions">'+
+            '<button type="button" class="pick-more" data-flip>Zurück</button>'+
+            (enabled ? '<button type="button" class="pick-select" data-select aria-pressed="'+sel+'">'+(sel ? 'Ausgewählt' : 'Auswählen')+'</button>' : '')+
+          '</div>'+
+        '</div>'+
+      '</div></li>';
+  }
+
+  function renderChoice(c){
+    var box = $('choice');
+    clearInterval(countdownTimer);
+    choicePending = false; choiceOpenNow = false;
+    if (!c || (!c.open_at && !c.choice)) { box.hidden = true; return; }
+    box.hidden = false;
+    var opts = c.options || [];
+
+    if (c.choice) {
+      var o = optByKey(c.choice) || { teaser: c.choice, key: c.choice };
+      box.className = 'choice chosen';
+      box.innerHTML =
+        '<p class="eyebrow">Deine Wahl</p>'+
+        '<div class="ticket" id="ticket">'+
+          '<span class="ticket-icon">'+(OPT_ICONS[o.key] || '')+'</span>'+
+          '<div class="ticket-text"><h2 id="choiceTitle">'+esc(o.teaser)+'</h2><p>'+esc(o.title || o.label || '')+'</p></div>'+
+          '<span class="stamp">Gebucht</span>'+
+        '</div>'+
+        '<p class="choice-note">Die Details erfährst du am Tag selbst, Schritt für Schritt.</p>';
+      return;
+    }
+
+    choicePending = true;
+    var openAt = new Date(c.open_at);
+    var isOpen = nowServer() >= openAt;
+    choiceOpenNow = isOpen;
+    box.className = 'choice' + (isOpen ? ' is-open' : ' is-waiting');
+    box.innerHTML =
+      '<p class="eyebrow">Eine Entscheidung</p>'+
+      '<h2 id="choiceTitle">Wie soll unser Nachmittag aussehen?</h2>'+
+      (isOpen
+        ? '<p class="choice-lede">Drei Karten, eine Wahl. Dreh sie um, schau sie dir in Ruhe an und entscheide dich. Danach gibt es kein Zurück.</p>'
+        : '<p class="choice-lede">Drei Karten, eine Wahl. Am '+esc(fmtOpen(c.open_at))+' darfst du entscheiden.</p>'+
+          '<p class="countdown" aria-live="off"><span class="cd-label">Die Wahl öffnet in</span><span class="cd-time" id="cdTime">'+countdownText(openAt - nowServer())+'</span></p>')+
+      '<ul class="picks">'+opts.map(function(o){ return cardHTML(o, isOpen); }).join('')+'</ul>'+
+      (isOpen
+        ? '<div class="confirm" id="confirmBar"'+(selected ? '' : ' hidden')+'>'+
+            '<p id="confirmText">'+(selected ? 'Deine Wahl: <b>'+esc(optByKey(selected).teaser)+'</b>' : '')+'</p>'+
+            '<button type="button" class="hold" id="holdBtn"><span class="hold-fill"></span><span class="hold-label">Gedrückt halten zum Bestätigen</span></button>'+
+            '<p class="choice-error" id="choiceError" hidden></p>'+
+          '</div>'
+        : '');
+
+    if (!isOpen) {
+      countdownTimer = setInterval(function(){
+        var left = openAt - nowServer();
+        var el = $('cdTime');
+        if (left <= 0) { clearInterval(countdownTimer); choiceKey = ''; renderChoice(choiceData); lastKey = ''; load(); return; }
+        if (el) el.textContent = countdownText(left);
+      }, 1000);
+    }
+  }
+
+  function renderBadge(c){
+    var b = $('variantBadge');
+    if (!c) { b.hidden = true; return; }
+    var pending = c.open_at && !c.choice;
+    if (pending || !c.variant) { b.hidden = true; return; }
+    var o = optByKey(c.variant);
+    var label = o ? (o.title || o.label) : c.variant;
+    var changed = c.choice && c.variant !== c.choice;
+    b.innerHTML = '<span class="badge-icon">'+(OPT_ICONS[c.variant] || '')+'</span><span>'+(changed ? 'Planänderung: ' : 'Dein Nachmittag: ')+esc(label)+'</span>';
+    b.className = 'badge sunny';
+    b.hidden = false;
+  }
+
+  function updateConfirm(){
+    var bar = $('confirmBar'); if (!bar) return;
+    bar.hidden = !selected;
+    if (selected) $('confirmText').innerHTML = 'Deine Wahl: <b>'+esc(optByKey(selected).teaser)+'</b>';
+    Array.prototype.forEach.call(document.querySelectorAll('.pick'), function(li){
+      var on = li.getAttribute('data-key') === selected;
+      li.classList.toggle('selected', on);
+      Array.prototype.forEach.call(li.querySelectorAll('[data-select]'), function(btn){
+        btn.setAttribute('aria-pressed', on); btn.textContent = on ? 'Ausgewählt' : 'Auswählen';
+      });
+    });
+  }
+
+  $('choice').addEventListener('click', function(e){
+    var li = e.target.closest('.pick'); if (!li) return;
+    if (e.target.closest('[data-flip]')) {
+      var flipped = li.classList.toggle('flipped');
+      li.querySelector('.pick-front').setAttribute('aria-hidden', flipped);
+      li.querySelector('.pick-back').setAttribute('aria-hidden', !flipped);
+      return;
+    }
+    if (e.target.closest('[data-select]') && !choosing) {
+      selected = li.getAttribute('data-key');
+      updateConfirm();
+      try { if (navigator.vibrate) navigator.vibrate(20); } catch (err) {}
+      var bar = $('confirmBar'); if (bar && bar.scrollIntoView) bar.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'nearest' });
+    }
+  });
+
+  // Gedrückt halten zum Bestätigen
+  var HOLD_MS = 1300, holdStart = 0, holdRaf = 0;
+  function holdProgress(p){ var b = $('holdBtn'); if (b) b.style.setProperty('--p', p); }
+  function holdBegin(e){
+    var b = e.target.closest && e.target.closest('#holdBtn'); if (!b || choosing || !selected) return;
+    if (e.type === 'pointerdown') { try { b.setPointerCapture(e.pointerId); } catch (err) {} }
+    if (e.type === 'keydown' && (e.key !== ' ' && e.key !== 'Enter' || e.repeat)) return;
+    e.preventDefault();
+    holdStart = performance.now();
+    b.classList.add('holding');
+    cancelAnimationFrame(holdRaf);
+    (function tick(t){
+      var p = Math.min(1, (t - holdStart) / HOLD_MS);
+      holdProgress(p);
+      if (p >= 1) { b.classList.remove('holding'); submitChoice(); return; }
+      holdRaf = requestAnimationFrame(tick);
+    })(holdStart);
+  }
+  function holdEnd(e){
+    var b = $('holdBtn'); if (!b || choosing) return;
+    if (e.type === 'keyup' && e.key !== ' ' && e.key !== 'Enter') return;
+    cancelAnimationFrame(holdRaf);
+    b.classList.remove('holding');
+    holdProgress(0);
+  }
+  $('choice').addEventListener('pointerdown', holdBegin);
+  $('choice').addEventListener('keydown', holdBegin);
+  ['pointerup','pointercancel','pointerleave','keyup'].forEach(function(t){ $('choice').addEventListener(t, holdEnd); });
+  $('choice').addEventListener('contextmenu', function(e){ if (e.target.closest('#holdBtn')) e.preventDefault(); });
+
+  async function submitChoice(){
+    if (choosing || !selected) return;
+    choosing = true;
+    var b = $('holdBtn'); if (b) { b.disabled = true; b.querySelector('.hold-label').textContent = 'Wird gespeichert …'; }
+    var res = await sb.rpc('make_choice', { opt: selected });
+    if (res.error) {
+      choosing = false;
+      if (b) { b.disabled = false; b.querySelector('.hold-label').textContent = 'Gedrückt halten zum Bestätigen'; }
+      holdProgress(0);
+      var err = $('choiceError');
+      if (err) { err.textContent = (res.error.message || 'Das hat nicht geklappt.') + ' Versuch es nochmals oder sag Bejhan Bescheid.'; err.hidden = false; }
+      return;
+    }
+    try { if (navigator.vibrate) navigator.vibrate([60, 40, 120]); } catch (err2) {}
+    choiceData = res.data; choiceKey = JSON.stringify(res.data);
+    renderChoice(choiceData);
+    renderBadge(choiceData);
+    var t = $('ticket'); if (t) t.classList.add('fresh');
+    confetti();
+    choosing = false; selected = null;
+    lastKey = ''; load();
+  }
+
+  function confetti(){
+    if (reduceMotion) return;
+    var c = $('confetti'), ctx = c.getContext('2d'), dpr = window.devicePixelRatio || 1;
+    var W = window.innerWidth, H = window.innerHeight;
+    c.width = W * dpr; c.height = H * dpr; ctx.scale(dpr, dpr);
+    c.classList.add('on');
+    var cs = getComputedStyle(document.documentElement);
+    var colors = [cs.getPropertyValue('--gold').trim() || '#B5822A', cs.getPropertyValue('--lake').trim() || '#24507E', '#E9C980', '#D98C8C', '#FFFFFF'];
+    var parts = [];
+    for (var i = 0; i < 160; i++) {
+      parts.push({ x: W / 2 + (Math.random() - .5) * 80, y: H * .45, vx: (Math.random() - .5) * 13, vy: -Math.random() * 15 - 5,
+        w: 5 + Math.random() * 6, h: 8 + Math.random() * 8, r: Math.random() * 6, vr: (Math.random() - .5) * .35, c: colors[i % colors.length] });
+    }
+    var start = performance.now();
+    (function frame(t){
+      var el = t - start;
+      ctx.clearRect(0, 0, W, H);
+      parts.forEach(function(p){
+        p.vy += .38; p.vx *= .99; p.x += p.vx; p.y += p.vy; p.r += p.vr;
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r);
+        ctx.globalAlpha = Math.max(0, 1 - el / 3200);
+        ctx.fillStyle = p.c; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        ctx.restore();
+      });
+      if (el < 3200) requestAnimationFrame(frame); else { ctx.clearRect(0, 0, W, H); c.classList.remove('on'); }
+    })(start);
+  }
+
   function renderPage(p){
     if (!p) return;
     if (p.title) { $('pageTitle').textContent = p.title; document.title = p.title; }
     if (p.subtitle != null) { $('pageSubtitle').textContent = p.subtitle; $('pageSubtitle').hidden = !p.subtitle; }
-    var b = $('variantBadge');
-    if (p.variant === 'gut') { b.innerHTML = SUN_SMALL + '<span>Schönwetter-Programm</span>'; b.className = 'badge sunny'; b.hidden = false; }
-    else if (p.variant === 'schlecht') { b.innerHTML = RAIN_SMALL + '<span>Schlechtwetter-Programm</span>'; b.className = 'badge rainy'; b.hidden = false; }
-    else b.hidden = true;
     if (p.weather_date) {
       try {
         var d = new Date(p.weather_date + 'T12:00:00');
@@ -230,8 +459,18 @@
   }
 
   async function load(){
-    var r = await Promise.all([sb.rpc('public_slots_v3'), sb.rpc('public_page'), sb.rpc('public_attachments'), sb.rpc('public_extras')]);
-    var slots = r[0], page = r[1], files = r[2].error ? [] : (r[2].data || []), extras = r[3];
+    var r = await Promise.all([sb.rpc('public_slots_v4'), sb.rpc('public_page'), sb.rpc('public_attachments'), sb.rpc('public_extras'), sb.rpc('public_choice')]);
+    var slots = r[0], page = r[1], files = r[2].error ? [] : (r[2].data || []), extras = r[3], ch = r[4];
+    if (!ch.error && ch.data) {
+      var srv = Date.parse(ch.data.now); if (!isNaN(srv)) serverOffset = srv - Date.now();
+      var ck = JSON.stringify([ch.data.open_at, ch.data.choice, ch.data.variant, ch.data.options]);
+      if (ck !== choiceKey && !choosing) {
+        var wasPending = choicePending;
+        choiceKey = ck; choiceData = ch.data;
+        renderChoice(choiceData); renderBadge(choiceData);
+        if (wasPending !== choicePending) lastKey = '';
+      }
+    }
     if (!extras.error && extras.data) {
       var ek = JSON.stringify(extras.data);
       if (ek !== lastExtras) { lastExtras = ek; renderLetter(extras.data.letter); renderAlbum(extras.data.album); }

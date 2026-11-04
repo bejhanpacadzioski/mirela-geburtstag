@@ -192,3 +192,63 @@ canvas.scratch.gone{opacity:0;pointer-events:none}
 .toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);opacity:0;z-index:20;max-width:calc(100% - 32px);padding:12px 18px;border-radius:12px;background:var(--ink);color:var(--bg);font-size:15px;font-weight:500;box-shadow:0 6px 24px rgba(0,0,0,.18);transition:opacity .35s ease,transform .35s ease}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 @media (prefers-reduced-motion:reduce){canvas.scratch,.toast{transition:none}}
+/* ---------- Die Wahl ---------- */
+.choice{background:var(--card);border:1px solid var(--gold);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.choice h2{margin:0;font-family:var(--display);font-weight:400;font-size:clamp(24px,6.5vw,30px);line-height:1.15;text-wrap:balance}
+.choice-lede{margin:0;color:var(--muted);font-size:15px;max-width:52ch}
+.countdown{margin:4px 0 0;display:flex;flex-direction:column;gap:2px}
+.cd-label{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.cd-time{font-family:var(--display);font-size:clamp(30px,9vw,40px);color:var(--gold);font-variant-numeric:tabular-nums;line-height:1.1}
+.picks{list-style:none;margin:4px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(176px,1fr));gap:10px}
+.pick{perspective:1100px;min-width:0}
+.pick-inner{display:grid;transition:transform .6s cubic-bezier(.3,.7,.2,1);transform-style:preserve-3d}
+.pick.flipped .pick-inner{transform:rotateY(180deg)}
+.pick-face{grid-area:1/1;backface-visibility:hidden;-webkit-backface-visibility:hidden;display:flex;flex-direction:column;gap:8px;padding:16px;border-radius:12px;border:1px solid var(--line);background:var(--bg);min-height:220px;min-width:0}
+.pick-back{transform:rotateY(180deg);background:var(--gold-soft);border-color:var(--gold)}
+.pick-face h3{margin:0;font-family:var(--display);font-weight:400;font-size:22px;line-height:1.2}
+.pick-face p{margin:0;font-size:14px;color:var(--muted)}
+.pick-back p{color:var(--ink)}
+.pick-kicker{font-size:11px!important;letter-spacing:.12em;text-transform:uppercase;font-weight:600;color:var(--gold)!important}
+.pick-icon{width:52px;height:52px;color:var(--lake)}
+.pick-icon svg{width:100%;height:100%;display:block}
+.pick-actions{margin-top:auto;padding-top:6px;display:flex;flex-wrap:wrap;gap:8px}
+.pick-more{padding:7px 11px;font-size:13px;background:transparent;color:var(--lake);border-color:var(--line)}
+.pick-select{padding:7px 12px;font-size:13px}
+.pick.selected .pick-face{border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-soft)}
+.pick.selected .pick-select{background:var(--gold);border-color:var(--gold);color:#fff}
+.is-waiting .pick-face{background:transparent;border-style:dashed}
+.confirm{position:sticky;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:5;display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:12px;background:var(--card);border:1px solid var(--line);box-shadow:0 8px 28px rgba(10,20,40,.16)}
+.confirm p{margin:0;font-size:15px}
+.hold{position:relative;overflow:hidden;width:100%;padding:14px;font-size:15px;border-radius:10px;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.hold-fill{position:absolute;inset:0;background:var(--gold);transform:scaleX(var(--p,0));transform-origin:left center}
+.hold-label{position:relative}
+.hold.holding{transform:scale(.985)}
+.choice-error{color:var(--danger)!important;font-size:14px!important}
+/* Nach der Wahl */
+.ticket{position:relative;display:flex;align-items:center;gap:14px;padding:18px;border-radius:12px;background:var(--gold-soft);border:1px dashed var(--gold);overflow:hidden}
+.ticket-icon{flex:none;width:56px;height:56px;color:var(--lake)}
+.ticket-icon svg{width:100%;height:100%;display:block}
+.ticket-text{min-width:0;padding-right:70px}
+.ticket-text h2{font-size:26px}
+.ticket-text p{margin:4px 0 0;color:var(--ink);font-size:15px}
+.stamp{position:absolute;top:14px;right:12px;transform:rotate(-12deg);padding:4px 10px;border:2px solid var(--gold);border-radius:6px;color:var(--gold);font-weight:600;font-size:12px;letter-spacing:.14em;text-transform:uppercase}
+.ticket.fresh{animation:reveal .8s ease both}
+.ticket.fresh .stamp{animation:stamp .5s .45s cubic-bezier(.2,1.4,.4,1) both}
+@keyframes stamp{from{opacity:0;transform:rotate(-12deg) scale(2.4)}to{opacity:1;transform:rotate(-12deg) scale(1)}}
+.choice-note{margin:0;font-size:14px;color:var(--muted)}
+.slot.decide .card{background:transparent;border:1px dashed var(--gold);display:flex;gap:12px;align-items:center}
+.slot.decide .card h2{font-size:18px}
+.slot.decide .note{margin:2px 0 0}
+.slot.decide .time{color:var(--gold)}
+.badge-icon{display:inline-grid;width:18px;height:18px}
+.badge-icon svg{width:100%;height:100%}
+canvas.confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:30;display:none}
+canvas.confetti.on{display:block}
+@media (prefers-reduced-motion:reduce){.pick-inner,.ticket.fresh,.ticket.fresh .stamp{transition:none;animation:none}}
+/* Admin: Wahl */
+.seg3{grid-template-columns:repeat(3,1fr)}
+.seg3 button{align-items:center;text-align:center;font-size:15px;padding:12px 8px}
+.choice-status{margin:0;font-size:14px}
+.opts-edit summary{cursor:pointer;font-size:14px;font-weight:600;color:var(--lake)}
+.opt-form{border-top:1px dashed var(--line);padding-top:12px;margin-top:12px}
+.opt-head{margin:0;font-weight:600}

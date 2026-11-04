@@ -7,7 +7,7 @@
 <title>Steuerung · Mirelas Tag</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=11">
+<link rel="stylesheet" href="style.css?v=13">
 </head>
 <body>
 <main class="wrap">
@@ -27,12 +27,21 @@
   </form>
 
   <section class="panel" id="panel" hidden>
+    <section class="extra" id="choiceBox">
+      <div class="extra-head"><h2>Mirelas Wahl</h2><span class="chip" id="choiceChip">–</span></div>
+      <p class="choice-status" id="choiceStatus"></p>
+      <div class="field"><label for="c-open">Wahl öffnet am <span class="opt">leer lassen, um die Wahl auszuschalten</span></label>
+        <div class="inline"><input id="c-open" type="datetime-local"><button type="button" class="ghost" id="choiceOpenSave">Speichern</button></div></div>
+      <div class="actions"><button type="button" class="danger" id="choiceReset">Wahl zurücksetzen</button></div>
+      <details class="opts-edit">
+        <summary>Texte der drei Karten bearbeiten</summary>
+        <div id="optEditors"></div>
+      </details>
+    </section>
+
     <div class="switch">
-      <p class="switch-label">Programm für Mirela</p>
-      <div class="seg" role="group" aria-label="Wetter-Variante">
-        <button type="button" id="v-gut" data-variant="gut">Schönwetter<small>Pilatus</small></button>
-        <button type="button" id="v-schlecht" data-variant="schlecht">Schlechtwetter<small>Schifffahrt</small></button>
-      </div>
+      <p class="switch-label">Aktives Programm</p>
+      <div class="seg seg3" role="group" aria-label="Aktives Programm" id="seg"></div>
       <p class="switch-hint" id="switchHint"></p>
     </div>
 
@@ -92,13 +101,14 @@
   </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=11"></script>
+<script src="config.js?v=13"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
   var items = [], files = [], photos = [], extras = {}, thumbs = {}, letterDirty = false, busy = false, editing = null, confirmDel = null;
-  var variant = 'schlecht', filter = 'active', textDirty = false;
-  var VLABEL = { beide: 'Beide', gut: 'Schönwetter', schlecht: 'Schlechtwetter' };
+  var variant = 'pilatus', filter = 'active', textDirty = false, options = [], choiceState = {}, optDirty = false;
+  var VLABEL = { beide: 'Alle', pilatus: 'Pilatus', schiff: 'Schifffahrt', escape: 'Escape Room' };
+  var PROGRAMS = ['pilatus', 'schiff', 'escape'];
 
   try { if (localStorage.getItem('adminFilter') === 'all') filter = 'all'; } catch (e) {}
 
@@ -107,7 +117,7 @@
   function say(el, text, isErr){ el.textContent = text || ''; el.hidden = !text; el.classList.toggle('err', !!isErr); }
   function val(id){ var el = $(id); return el ? el.value.trim() : ''; }
   function byId(id){ return items.find(function(x){ return x.id === id; }); }
-  function isActive(it){ return it.variant === 'beide' || it.variant === variant; }
+  function isActive(it){ return it.program === 'beide' || it.program === variant; }
   function visible(){ return filter === 'all' ? items : items.filter(isActive); }
 
   function fieldHTML(id, label, opt, control){
@@ -115,12 +125,12 @@
   }
 
   function editorHTML(it){
-    it = it || { variant: 'beide' };
+    it = it || { program: 'beide' };
     var del = it.id
       ? '<button type="button" class="danger'+(confirmDel===it.id?' sure':'')+'" data-act="delete">'+(confirmDel===it.id?'Ja, endgültig löschen':'Löschen')+'</button>'
       : '';
-    var opts = ['beide','gut','schlecht'].map(function(v){
-      return '<option value="'+v+'"'+(it.variant===v?' selected':'')+'>'+(v==='beide'?'Beide Programme':'Nur '+VLABEL[v])+'</option>';
+    var opts = ['beide'].concat(PROGRAMS).map(function(v){
+      return '<option value="'+v+'"'+(it.program===v?' selected':'')+'>'+(v==='beide'?'Alle Programme':'Nur '+VLABEL[v])+'</option>';
     }).join('');
     return '<form class="editor" id="editor">'+
       fieldHTML('f-variant', 'Gilt für', '', '<select id="f-variant">'+opts+'</select>')+
@@ -175,20 +185,68 @@
     if (win) win.location.href = res.data.signedUrl; else location.href = res.data.signedUrl;
   }
 
+  function fmtDateTime(iso){
+    try { return new Date(iso).toLocaleString('de-CH', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }); }
+    catch (e) { return iso; }
+  }
+  function toLocalInput(iso){
+    if (!iso) return '';
+    var d = new Date(iso); if (isNaN(d)) return '';
+    var pad = function(n){ return String(n).padStart(2, '0'); };
+    return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());
+  }
+
   function renderSwitch(){
-    ['gut','schlecht'].forEach(function(v){
-      var b = $('v-'+v);
-      b.setAttribute('aria-pressed', variant === v ? 'true' : 'false');
-      b.classList.toggle('on', variant === v);
-      b.disabled = busy;
-    });
-    var shared = items.filter(function(x){ return x.variant === 'beide'; }).length;
-    var own = items.filter(function(x){ return x.variant === variant; }).length;
-    $('switchHint').textContent = 'Mirela sieht jetzt das ' + VLABEL[variant] + '-Programm: ' + shared + ' gemeinsame und ' + own + ' eigene Punkte.';
+    $('seg').innerHTML = PROGRAMS.map(function(v){
+      var on = variant === v;
+      return '<button type="button" data-variant="'+v+'" aria-pressed="'+on+'"'+(on?' class="on"':'')+(busy?' disabled':'')+'>'+esc(VLABEL[v])+'</button>';
+    }).join('');
+    var shared = items.filter(function(x){ return x.program === 'beide'; }).length;
+    var own = items.filter(function(x){ return x.program === variant; }).length;
+    var pending = choiceState.open_at && !choiceState.choice;
+    $('switchHint').textContent = pending
+      ? 'Solange Mirela nicht gewählt hat, sieht sie nur die ' + shared + ' gemeinsamen Punkte. Ihre Wahl setzt das Programm automatisch.'
+      : 'Mirela sieht jetzt das Programm ' + VLABEL[variant] + ': ' + shared + ' gemeinsame und ' + own + ' eigene Punkte.';
     $('f-active').classList.toggle('on', filter === 'active');
     $('f-all').classList.toggle('on', filter === 'all');
     $('f-active').setAttribute('aria-pressed', filter === 'active' ? 'true' : 'false');
     $('f-all').setAttribute('aria-pressed', filter === 'all' ? 'true' : 'false');
+    renderChoiceAdmin();
+  }
+
+  function renderChoiceAdmin(){
+    var c = choiceState, chip = $('choiceChip'), st = $('choiceStatus');
+    if (c.choice) {
+      chip.textContent = 'Gewählt'; chip.className = 'chip on';
+      st.innerHTML = 'Mirela hat <b>' + esc(VLABEL[c.choice] || c.choice) + '</b> gewählt' + (c.choice_at ? ', am ' + esc(fmtDateTime(c.choice_at)) : '') + '.' +
+        (variant !== c.choice ? ' Aktiv ist trotzdem <b>' + esc(VLABEL[variant]) + '</b>, sie sieht das als «Planänderung».' : '');
+    } else if (!c.open_at) {
+      chip.textContent = 'Aus'; chip.className = 'chip';
+      st.textContent = 'Die Wahl ist ausgeschaltet. Mirela sieht das aktive Programm direkt.';
+    } else if (new Date(c.open_at) > new Date()) {
+      chip.textContent = 'Geplant'; chip.className = 'chip';
+      st.textContent = 'Die Wahl öffnet am ' + fmtDateTime(c.open_at) + '. Bis dahin sieht Mirela die drei Karten mit Countdown.';
+    } else {
+      chip.textContent = 'Offen'; chip.className = 'chip on';
+      st.textContent = 'Die Wahl ist offen. Mirela hat noch nicht gewählt.';
+    }
+    if (document.activeElement !== $('c-open')) $('c-open').value = toLocalInput(c.open_at);
+    $('choiceReset').hidden = !c.choice;
+    $('choiceReset').disabled = busy;
+    $('choiceOpenSave').disabled = busy;
+    if (!optDirty) {
+      $('optEditors').innerHTML = options.map(function(o){
+        var k = o.key;
+        return '<form class="editor opt-form" data-opt="'+esc(k)+'">'+
+          '<p class="opt-head">'+esc(VLABEL[k])+'</p>'+
+          fieldHTML('o-'+k+'-teaser', 'Überschrift auf der Karte', '', '<input id="o-'+k+'-teaser" required maxlength="40" value="'+esc(o.teaser)+'">')+
+          fieldHTML('o-'+k+'-hint', 'Kurzer Hinweis', 'Vorderseite', '<input id="o-'+k+'-hint" maxlength="120" value="'+esc(o.hint)+'">')+
+          fieldHTML('o-'+k+'-title', 'Was es ist', 'Rückseite', '<input id="o-'+k+'-title" maxlength="80" value="'+esc(o.title)+'">')+
+          fieldHTML('o-'+k+'-details', 'Beschreibung', 'Rückseite', '<textarea id="o-'+k+'-details" rows="3">'+esc(o.details)+'</textarea>')+
+          '<div class="actions"><button type="submit"'+(busy?' disabled':'')+'>Karte speichern</button></div>'+
+        '</form>';
+      }).join('');
+    }
   }
 
   function renderExtras(){
@@ -216,7 +274,7 @@
     var list = visible();
     $('rows').innerHTML = list.map(function(it, i){
       var on = it.revealed, dis = busy ? ' disabled' : '', open = editing === it.id, active = isActive(it);
-      var vchip = it.variant === 'beide' ? '' : '<span class="vchip v-'+it.variant+'">'+VLABEL[it.variant]+'</span>';
+      var vchip = it.program === 'beide' ? '' : '<span class="vchip v-'+it.program+'">'+VLABEL[it.program]+'</span>';
       return '<li class="entry'+(on?' is-on':'')+(active?'':' is-off')+'" data-id="'+esc(it.id)+'">'+
         '<div class="entry-top"><span class="entry-time">'+esc(it.time_label)+'</span>'+
           '<span class="chips">'+vchip+'<span class="chip'+(on?' on':'')+'">'+(on?'Sichtbar':'Gesperrt')+'</span></span></div>'+
@@ -258,10 +316,16 @@
     }
     var r3 = await sb.from('attachments').select('*').order('created_at');
     files = r3.error ? [] : (r3.data || []);
+    var r6 = await sb.from('options').select('*').order('sort');
+    if (!r6.error) options = r6.data || [];
     var r2 = await sb.from('settings').select('key,value');
+    choiceState = {};
     if (!r2.error && r2.data) {
       r2.data.forEach(function(s){
         if (s.key === 'variant') variant = s.value;
+        if (s.key === 'choice') choiceState.choice = s.value || null;
+        if (s.key === 'choice_at') choiceState.choice_at = s.value || null;
+        if (s.key === 'choice_open_at') choiceState.open_at = s.value || null;
         if (s.key === 'title' && !textDirty) $('t-title').value = s.value;
         if (s.key === 'subtitle' && !textDirty) $('t-subtitle').value = s.value;
         if (s.key === 'weather_date' && !textDirty) $('t-wdate').value = s.value;
@@ -300,7 +364,7 @@
 
   async function saveEditor(){
     var data = {
-      variant: val('f-variant') || 'beide',
+      program: val('f-variant') || 'beide',
       time_label: val('f-time'),
       title: val('f-title'),
       place: val('f-place') || null,
@@ -341,7 +405,7 @@
     else if (act === 'toggle') {
       var it = byId(id); if (!it) return;
       run([function(){ return sb.from('plan').update({ revealed: !it.revealed }).eq('id', id); }],
-          it.revealed ? 'Wieder verborgen.' : (isActive(it) ? 'Freigeschaltet. Mirela sieht es gleich.' : 'Freigeschaltet. Sichtbar wird es erst im ' + VLABEL[it.variant] + '-Programm.'));
+          it.revealed ? 'Wieder verborgen.' : (isActive(it) ? 'Freigeschaltet. Mirela sieht es gleich.' : 'Freigeschaltet. Sichtbar wird es erst im Programm ' + VLABEL[it.program] + '.'));
     }
     else if (act === 'edit') { editing = id; confirmDel = null; say($('msg'), ''); render(); var f = $('f-time'); if (f) f.focus(); }
     else if (act === 'cancel') { editing = null; confirmDel = null; render(); }
@@ -363,11 +427,40 @@
     if (e.target && e.target.id === 'editor') { e.preventDefault(); saveEditor(); }
   });
 
-  document.querySelector('.seg').addEventListener('click', function(e){
+  $('seg').addEventListener('click', function(e){
     var b = e.target.closest('button[data-variant]'); if (!b || busy) return;
     var v = b.getAttribute('data-variant'); if (v === variant) return;
     run([function(){ return sb.from('settings').update({ value: v }).eq('key', 'variant'); }],
         'Umgeschaltet auf ' + VLABEL[v] + '. Mirela sieht es gleich.');
+  });
+
+  $('choiceOpenSave').addEventListener('click', function(){
+    var v = $('c-open').value, iso = '';
+    if (v) { var d = new Date(v); if (isNaN(d)) { say($('msg'), 'Bitte ein gültiges Datum wählen.', true); return; } iso = d.toISOString().replace(/\.\d{3}Z$/, 'Z'); }
+    run([function(){ return sb.from('settings').update({ value: iso }).eq('key', 'choice_open_at'); }],
+        iso ? 'Die Wahl öffnet am ' + fmtDateTime(iso) + '.' : 'Die Wahl ist ausgeschaltet.');
+  });
+  $('choiceReset').addEventListener('click', function(){
+    var b = $('choiceReset');
+    if (b.getAttribute('data-sure') !== '1') { b.setAttribute('data-sure', '1'); b.textContent = 'Wirklich zurücksetzen?'; b.classList.add('sure'); return; }
+    b.removeAttribute('data-sure'); b.textContent = 'Wahl zurücksetzen'; b.classList.remove('sure');
+    run([
+      function(){ return sb.from('settings').update({ value: '' }).eq('key', 'choice'); },
+      function(){ return sb.from('settings').update({ value: '' }).eq('key', 'choice_at'); }
+    ], 'Wahl zurückgesetzt. Mirela kann neu wählen.');
+  });
+  $('optEditors').addEventListener('input', function(){ optDirty = true; });
+  $('optEditors').addEventListener('submit', function(e){
+    var f = e.target.closest('form[data-opt]'); if (!f) return;
+    e.preventDefault();
+    var k = f.getAttribute('data-opt');
+    var data = {
+      teaser: val('o-'+k+'-teaser'), hint: val('o-'+k+'-hint') || null,
+      title: val('o-'+k+'-title') || null, details: val('o-'+k+'-details') || null
+    };
+    if (!data.teaser) { say($('msg'), 'Die Überschrift der Karte darf nicht leer sein.', true); return; }
+    optDirty = false;
+    run([function(){ return sb.from('options').update(data).eq('key', k); }], 'Karte «' + VLABEL[k] + '» gespeichert.');
   });
   document.querySelector('.filterbar').addEventListener('click', function(e){
     var b = e.target.closest('button[data-filter]'); if (!b) return;
