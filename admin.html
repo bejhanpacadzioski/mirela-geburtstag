@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Steuerung · Mirelas Tag</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <p class="eyebrow">Nur für Bejhan</p>
+    <h1>Steuerung</h1>
+    <p class="lede">Was du hier freischaltest, sieht Mirela innert etwa 20 Sekunden auf ihrer Seite.</p>
+  </header>
+
+  <section class="panel" id="login" hidden>
+    <label for="email">Deine E-Mail-Adresse</label>
+    <input id="email" type="email" autocomplete="email" placeholder="name@beispiel.ch">
+    <div class="actions"><button id="sendLink" type="button">Login-Link senden</button></div>
+    <p id="loginMsg" class="msg" hidden></p>
+  </section>
+
+  <section class="panel" id="panel" hidden>
+    <p id="msg" class="msg" hidden></p>
+    <ul class="rows" id="rows"></ul>
+    <div class="actions">
+      <button class="ghost" id="hideAll" type="button">Alle wieder verbergen</button>
+      <button class="ghost" id="logout" type="button">Abmelden</button>
+    </div>
+  </section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+(function(){
+  var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+  var items = [], busy = false;
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]}); }
+  function say(el, text, isErr){ el.textContent = text || ''; el.hidden = !text; el.classList.toggle('err', !!isErr); }
+
+  function renderRows(){
+    $('rows').innerHTML = items.map(function(it){
+      var on = it.revealed;
+      return '<li class="row"><div class="rt"><b>'+esc(it.title)+'</b><span>'+esc(it.time_label)+'</span></div>'+
+        '<span class="chip'+(on?' on':'')+'">'+(on?'Sichtbar':'Gesperrt')+'</span>'+
+        '<button type="button" data-id="'+esc(it.id)+'"'+(on?' class="ghost"':'')+(busy?' disabled':'')+'>'+(on?'Verbergen':'Freischalten')+'</button></li>';
+    }).join('');
+    $('hideAll').disabled = busy;
+  }
+
+  async function loadItems(){
+    var res = await sb.from('plan').select('*').order('sort');
+    if (res.error) { say($('msg'), 'Die Programmpunkte konnten nicht geladen werden: ' + res.error.message, true); return; }
+    items = res.data || [];
+    if (!items.length) say($('msg'), 'Keine Programmpunkte sichtbar. Prüfe, ob deine E-Mail-Adresse in schema.sql eingetragen ist.', true);
+    renderRows();
+  }
+
+  async function save(id, value){
+    if (busy) return;
+    busy = true; renderRows(); say($('msg'), 'Wird gespeichert …');
+    var q = sb.from('plan').update({ revealed: value });
+    var res = id ? await q.eq('id', id) : await q.neq('id', '');
+    busy = false;
+    if (res.error) { say($('msg'), 'Speichern hat nicht geklappt: ' + res.error.message, true); renderRows(); return; }
+    await loadItems();
+    say($('msg'), id ? (value ? 'Freigeschaltet. Mirela sieht es gleich.' : 'Wieder verborgen.') : 'Alle Punkte sind wieder verborgen.');
+  }
+
+  $('rows').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-id]'); if (!b) return;
+    var id = b.getAttribute('data-id');
+    var it = items.find(function(x){ return x.id === id; }); if (!it) return;
+    save(id, !it.revealed);
+  });
+  $('hideAll').addEventListener('click', function(){ save(null, false); });
+  $('logout').addEventListener('click', function(){ sb.auth.signOut(); });
+
+  $('sendLink').addEventListener('click', async function(){
+    var email = $('email').value.trim();
+    if (!email) { say($('loginMsg'), 'Bitte gib deine E-Mail-Adresse ein.', true); return; }
+    $('sendLink').disabled = true;
+    var res = await sb.auth.signInWithOtp({ email: email, options: { emailRedirectTo: location.href.split('#')[0].split('?')[0] } });
+    $('sendLink').disabled = false;
+    if (res.error) say($('loginMsg'), 'Der Link konnte nicht gesendet werden: ' + res.error.message, true);
+    else say($('loginMsg'), 'Login-Link gesendet. Öffne ihn auf diesem Gerät.');
+  });
+
+  function show(session){
+    $('login').hidden = !!session;
+    $('panel').hidden = !session;
+    if (session) loadItems();
+  }
+  sb.auth.getSession().then(function(r){ show(r.data.session); });
+  sb.auth.onAuthStateChange(function(_event, session){ show(session); });
+})();
+</script>
+</body>
+</html>

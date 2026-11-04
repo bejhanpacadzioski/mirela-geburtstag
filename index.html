@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Alles Gute, Mirela</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <p class="eyebrow">Freitag, 27. November 2026 · Luzern</p>
+    <h1>Alles Gute, Mirela</h1>
+    <p class="lede">Heute gehört dir. Was wir vorhaben, erfährst du erst, wenn es so weit ist.</p>
+    <div class="progress"><div class="bar"><span id="bar"></span></div><span id="count"></span></div>
+  </header>
+  <ol class="timeline" id="timeline"><li class="status">Dein Tag wird geladen …</li></ol>
+  <p class="sign">Von Bejhan, mit Liebe.</p>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+(function(){
+  var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+  var LOCK = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="currentColor"/><path d="M5 7V5a3 3 0 0 1 6 0v2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>';
+  var lastKey = '', seenOpen = null;
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+
+  function render(slots){
+    var open = slots.filter(function(s){return s.revealed});
+    var openIds = open.map(function(s){return s.id});
+    document.getElementById('bar').style.width = (slots.length ? Math.round(open.length/slots.length*100) : 0) + '%';
+    document.getElementById('count').textContent = open.length + ' von ' + slots.length + ' Momenten enthüllt';
+    document.getElementById('timeline').innerHTML = slots.map(function(s){
+      if (s.revealed) {
+        var fresh = seenOpen && seenOpen.indexOf(s.id) === -1 ? ' fresh' : '';
+        return '<li class="slot open'+fresh+'"><div class="time">'+esc(s.time_label)+'</div><div class="card"><h2>'+esc(s.title)+'</h2>'+
+          (s.place ? '<p class="place">'+esc(s.place)+'</p>' : '') + (s.note ? '<p class="note">'+esc(s.note)+'</p>' : '') + '</div></li>';
+      }
+      return '<li class="slot locked"><div class="time">'+esc(s.time_label)+'</div><div class="card"><span class="lock">'+LOCK+'</span><div><h2>Überraschung</h2></div></div></li>';
+    }).join('');
+    seenOpen = openIds;
+  }
+
+  async function load(){
+    var res = await sb.rpc('public_slots');
+    if (res.error) {
+      if (!lastKey) document.getElementById('timeline').innerHTML = '<li class="status">Dein Tag kann gerade nicht geladen werden. Versuch es gleich nochmals.</li>';
+      return;
+    }
+    var key = JSON.stringify(res.data);
+    if (key === lastKey) return;
+    lastKey = key;
+    render(res.data || []);
+  }
+
+  load();
+  setInterval(load, 20000);
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden) load(); });
+})();
+</script>
+</body>
+</html>
