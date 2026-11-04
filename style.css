@@ -278,3 +278,6 @@ canvas.confetti.on{display:block}
 .deadline-left{font-variant-numeric:tabular-nums;color:var(--gold)}
 .deadline-left b{font-weight:600}
 .choice.is-waiting{border-style:dashed}
+.pick-mini{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:12px;border:1px dashed var(--line);min-width:0}
+.pick-mini h3{margin:0;font-family:var(--display);font-weight:400;font-size:20px;line-height:1.2}
+.pick-mini .pick-num{margin:0}
