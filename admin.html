@@ -29,7 +29,9 @@
   <section class="panel" id="panel" hidden>
     <p id="msg" class="msg" hidden></p>
     <ul class="rows" id="rows"></ul>
+    <div id="newWrap"></div>
     <div class="actions">
+      <button id="addNew" type="button">Neuer Eintrag</button>
       <button class="ghost" id="hideAll" type="button">Alle wieder verbergen</button>
       <button class="ghost" id="logout" type="button">Abmelden</button>
     </div>
@@ -49,47 +51,145 @@
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-  var items = [], busy = false;
+  var items = [], busy = false, editing = null, confirmDel = null;
+
   function $(id){ return document.getElementById(id); }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]}); }
   function say(el, text, isErr){ el.textContent = text || ''; el.hidden = !text; el.classList.toggle('err', !!isErr); }
+  function val(id){ var el = $(id); return el ? el.value.trim() : ''; }
+  function byId(id){ return items.find(function(x){ return x.id === id; }); }
 
-  function renderRows(){
-    $('rows').innerHTML = items.map(function(it){
-      var on = it.revealed;
-      return '<li class="row"><div class="rt"><b>'+esc(it.title)+'</b><span>'+esc(it.time_label)+'</span></div>'+
-        '<span class="chip'+(on?' on':'')+'">'+(on?'Sichtbar':'Gesperrt')+'</span>'+
-        '<button type="button" data-id="'+esc(it.id)+'"'+(on?' class="ghost"':'')+(busy?' disabled':'')+'>'+(on?'Verbergen':'Freischalten')+'</button></li>';
+  function editorHTML(it){
+    it = it || {};
+    var del = it.id
+      ? '<button type="button" class="danger'+(confirmDel===it.id?' sure':'')+'" data-act="delete">'+(confirmDel===it.id?'Ja, endgültig löschen':'Löschen')+'</button>'
+      : '';
+    return '<form class="editor" id="editor">'+
+      '<label for="f-time">Uhrzeit</label>'+
+      '<input id="f-time" required placeholder="z. B. 14:30 – 16:00" value="'+esc(it.time_label)+'">'+
+      '<label for="f-title">Titel</label>'+
+      '<input id="f-title" required value="'+esc(it.title)+'">'+
+      '<label for="f-place">Untertitel <span class="opt">optional</span></label>'+
+      '<input id="f-place" value="'+esc(it.place)+'">'+
+      '<label for="f-location">Ort <span class="opt">optional, erscheint als Kartenlink</span></label>'+
+      '<input id="f-location" placeholder="z. B. Furrengasse 6, 6004 Luzern" value="'+esc(it.location)+'">'+
+      '<label for="f-note">Beschreibung <span class="opt">optional</span></label>'+
+      '<textarea id="f-note" rows="3">'+esc(it.note)+'</textarea>'+
+      '<div class="actions"><button type="submit"'+(busy?' disabled':'')+'>Speichern</button>'+
+      '<button type="button" class="ghost" data-act="cancel">Abbrechen</button>'+del+'</div>'+
+    '</form>';
+  }
+
+  function render(){
+    $('rows').innerHTML = items.map(function(it, i){
+      var on = it.revealed, dis = busy ? ' disabled' : '';
+      return '<li class="row" data-id="'+esc(it.id)+'">'+
+        '<div class="rowhead">'+
+          '<div class="order">'+
+            '<button type="button" class="icon" data-act="up" aria-label="Nach oben"'+(i===0||busy?' disabled':'')+'>▲</button>'+
+            '<button type="button" class="icon" data-act="down" aria-label="Nach unten"'+(i===items.length-1||busy?' disabled':'')+'>▼</button>'+
+          '</div>'+
+          '<div class="rt"><b>'+esc(it.title)+'</b><span>'+esc(it.time_label)+(it.location?' · '+esc(it.location):'')+'</span></div>'+
+          '<span class="chip'+(on?' on':'')+'">'+(on?'Sichtbar':'Gesperrt')+'</span>'+
+        '</div>'+
+        '<div class="rowactions">'+
+          '<button type="button" data-act="toggle"'+(on?' class="ghost"':'')+dis+'>'+(on?'Verbergen':'Freischalten')+'</button>'+
+          (editing===it.id ? '' : '<button type="button" class="ghost" data-act="edit"'+dis+'>Bearbeiten</button>')+
+        '</div>'+
+        (editing===it.id ? editorHTML(it) : '')+
+      '</li>';
     }).join('');
+    $('newWrap').innerHTML = editing === 'new' ? '<div class="newbox" data-id="new"><b>Neuer Eintrag</b>'+editorHTML(null)+'</div>' : '';
+    $('addNew').hidden = editing === 'new';
     $('hideAll').disabled = busy;
   }
 
   async function loadItems(){
-    var res = await sb.from('plan').select('*').order('sort');
-    if (res.error) { say($('msg'), 'Die Programmpunkte konnten nicht geladen werden: ' + res.error.message, true); return; }
+    var res = await sb.from('plan').select('*').order('sort').order('time_label');
+    if (res.error) { say($('msg'), 'Die Einträge konnten nicht geladen werden: ' + res.error.message, true); return; }
     items = res.data || [];
-    if (!items.length) say($('msg'), 'Keine Programmpunkte sichtbar. Prüfe, ob deine E-Mail-Adresse in schema.sql eingetragen ist.', true);
-    renderRows();
+    render();
   }
 
-  async function save(id, value){
-    if (busy) return;
-    busy = true; renderRows(); say($('msg'), 'Wird gespeichert …');
-    var q = sb.from('plan').update({ revealed: value });
-    var res = id ? await q.eq('id', id) : await q.neq('id', '');
+  async function run(promises, okText){
+    busy = true; render(); say($('msg'), 'Wird gespeichert …');
+    for (var i = 0; i < promises.length; i++) {
+      var res = await promises[i]();
+      if (res.error) { busy = false; render(); say($('msg'), 'Speichern hat nicht geklappt: ' + res.error.message, true); return false; }
+    }
     busy = false;
-    if (res.error) { say($('msg'), 'Speichern hat nicht geklappt: ' + res.error.message, true); renderRows(); return; }
     await loadItems();
-    say($('msg'), id ? (value ? 'Freigeschaltet. Mirela sieht es gleich.' : 'Wieder verborgen.') : 'Alle Punkte sind wieder verborgen.');
+    say($('msg'), okText);
+    return true;
   }
 
-  $('rows').addEventListener('click', function(e){
-    var b = e.target.closest('button[data-id]'); if (!b) return;
-    var id = b.getAttribute('data-id');
-    var it = items.find(function(x){ return x.id === id; }); if (!it) return;
-    save(id, !it.revealed);
+  function move(id, dir){
+    var i = items.findIndex(function(x){ return x.id === id; }), j = i + dir;
+    if (i < 0 || j < 0 || j >= items.length) return;
+    // Reihenfolge neu durchnummerieren, damit sie eindeutig bleibt
+    var order = items.map(function(x){ return x.id; });
+    order[i] = items[j].id; order[j] = items[i].id;
+    var changes = [];
+    order.forEach(function(oid, idx){
+      var it = byId(oid);
+      if (it.sort !== idx + 1) changes.push(function(){ return sb.from('plan').update({ sort: idx + 1 }).eq('id', oid); });
+    });
+    run(changes, 'Reihenfolge gespeichert.');
+  }
+
+  async function saveEditor(){
+    var data = {
+      time_label: val('f-time'),
+      title: val('f-title'),
+      place: val('f-place') || null,
+      location: val('f-location') || null,
+      note: val('f-note') || null
+    };
+    if (!data.time_label || !data.title) { say($('msg'), 'Uhrzeit und Titel braucht jeder Eintrag.', true); return; }
+    var ok;
+    if (editing === 'new') {
+      var maxSort = items.reduce(function(m, x){ return Math.max(m, x.sort || 0); }, 0);
+      data.sort = maxSort + 1; data.revealed = false;
+      ok = await run([function(){ return sb.from('plan').insert(data); }], 'Neuer Eintrag gespeichert. Er ist für Mirela noch gesperrt.');
+    } else {
+      var id = editing;
+      ok = await run([function(){ return sb.from('plan').update(data).eq('id', id); }], 'Änderungen gespeichert.');
+    }
+    if (ok) { editing = null; confirmDel = null; render(); }
+  }
+
+  function onAction(e){
+    var b = e.target.closest('button[data-act]'); if (!b || busy) return;
+    var holder = b.closest('[data-id]'); var id = holder ? holder.getAttribute('data-id') : null;
+    var act = b.getAttribute('data-act');
+    if (act === 'up') move(id, -1);
+    else if (act === 'down') move(id, 1);
+    else if (act === 'toggle') {
+      var it = byId(id); if (!it) return;
+      run([function(){ return sb.from('plan').update({ revealed: !it.revealed }).eq('id', id); }],
+          it.revealed ? 'Wieder verborgen.' : 'Freigeschaltet. Mirela sieht es gleich.');
+    }
+    else if (act === 'edit') { editing = id; confirmDel = null; say($('msg'), ''); render(); var f = $('f-time'); if (f) f.focus(); }
+    else if (act === 'cancel') { editing = null; confirmDel = null; render(); }
+    else if (act === 'delete') {
+      if (confirmDel !== id) { confirmDel = id; render(); return; }
+      run([function(){ return sb.from('plan').delete().eq('id', id); }], 'Eintrag gelöscht.')
+        .then(function(ok){ if (ok) { editing = null; confirmDel = null; render(); } });
+    }
+  }
+  $('rows').addEventListener('click', onAction);
+  $('newWrap').addEventListener('click', onAction);
+  document.addEventListener('submit', function(e){
+    if (e.target && e.target.id === 'editor') { e.preventDefault(); saveEditor(); }
   });
-  $('hideAll').addEventListener('click', function(){ save(null, false); });
+
+  $('addNew').addEventListener('click', function(){
+    editing = 'new'; confirmDel = null; say($('msg'), ''); render();
+    var f = $('f-time'); if (f) f.focus();
+  });
+  $('hideAll').addEventListener('click', function(){
+    run([function(){ return sb.from('plan').update({ revealed: false }).neq('id', ''); }], 'Alle Punkte sind wieder verborgen.');
+  });
   $('logout').addEventListener('click', function(){ sb.auth.signOut(); });
 
   $('login').addEventListener('submit', async function(e){
@@ -112,7 +212,10 @@
     else { $('newPw').value = ''; say($('pwMsg'), 'Neues Passwort gespeichert.'); }
   });
 
+  var shown = null;
   function show(session){
+    var key = session ? session.user.id : '';
+    if (key === shown) return; shown = key;
     $('login').hidden = !!session;
     $('panel').hidden = !session;
     if (session) loadItems();

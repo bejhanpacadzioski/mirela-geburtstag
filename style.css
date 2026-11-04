@@ -61,3 +61,21 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
 @media (prefers-reduced-motion:reduce){.fresh .card{animation:none}.bar span{transition:none}}
 details summary{cursor:pointer;font-size:14px;font-weight:600;color:var(--lake)}
 details summary:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.card .loc{margin-top:10px;display:inline-flex;align-items:flex-start;gap:6px;font-size:14px;font-weight:500;color:var(--lake);text-decoration:none;border-bottom:1px solid var(--line);padding-bottom:2px;overflow-wrap:anywhere}
+.card .loc svg{flex:none;margin-top:3px;color:var(--gold)}
+.card .loc:hover{border-color:var(--lake)}
+.card .loc:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+/* Admin: Einträge bearbeiten */
+.rows .row{flex-direction:column;align-items:stretch;gap:10px;flex-wrap:nowrap}
+.rowhead{display:flex;align-items:center;gap:10px;min-width:0}
+.order{display:flex;flex-direction:column;gap:2px}
+button.icon{padding:2px 8px;font-size:13px;line-height:1.2;background:transparent;color:var(--lake);border-color:var(--line)}
+.rowactions{display:flex;flex-wrap:wrap;gap:8px}
+button.danger{background:transparent;color:var(--danger);border-color:var(--danger)}
+button.danger.sure{background:var(--danger);color:var(--bg)}
+.editor{display:flex;flex-direction:column;gap:8px;border-top:1px dashed var(--line);padding-top:12px}
+.editor .actions{margin-top:6px}
+.opt{font-weight:400;color:var(--muted);font-size:13px}
+textarea{font:inherit;width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);resize:vertical}
+textarea:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.newbox{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px}
