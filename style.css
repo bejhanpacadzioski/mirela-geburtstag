@@ -269,3 +269,6 @@ canvas.confetti.on{display:block}
 .ticket-sched summary{cursor:pointer;font-size:14px;font-weight:600;color:var(--lake)}
 .ticket-sched .sched{margin-top:8px}
 .flabel{font-size:14px;font-weight:600}
+/* Titelbild füllt freien Platz, wenn die Rückseite länger ist */
+.has-cover .pick-front .pick-cover{flex:1 1 auto;aspect-ratio:auto;min-height:170px}
+.has-cover .pick-front .pick-actions{margin-top:4px}
