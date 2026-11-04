@@ -138,7 +138,7 @@
           (s.location ? '<a class="loc" href="'+esc(mapLink(s.location))+'" target="_blank" rel="noopener">'+PIN+'<span>'+esc(s.location)+'</span></a>' : '') +
           filesHTML(files.filter(function(f){ return f.plan_id === s.id; })) + '</div></li>';
       }
-      return '<li class="slot locked"><div class="time">'+esc(s.time_label)+'</div><div class="card"><span class="lock">'+LOCK+'</span><div><h2>Überraschung</h2></div></div></li>';
+      return '<li class="slot locked"><div class="time">'+esc(s.time_label)+'</div><div class="card"><span class="lock">'+LOCK+'</span><div><h2>Verschlossen</h2></div></div></li>';
     });
     if (choicePending && list.length) {
       list.splice(list.length - 1, 0,
