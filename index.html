@@ -7,7 +7,7 @@
 <title>Alles Gute, Mirela</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=5">
+<link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
 <main class="wrap">
@@ -21,7 +21,7 @@
   <p class="sign">Von Bejhan, mit Liebe.</p>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=5"></script>
+<script src="config.js?v=6"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -49,7 +49,7 @@
   }
 
   async function load(){
-    var res = await sb.rpc('public_slots_v2');
+    var res = await sb.rpc('public_slots_v3');
     if (res.error) {
       if (!lastKey) document.getElementById('timeline').innerHTML = '<li class="status">Dein Tag kann gerade nicht geladen werden. Versuch es gleich nochmals.</li>';
       return;

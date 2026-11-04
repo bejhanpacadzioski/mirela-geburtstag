@@ -87,3 +87,22 @@ button.danger.sure{background:var(--danger);color:var(--bg)}
 textarea{display:block;font:inherit;font-size:16px;width:100%;min-height:84px;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);resize:vertical;line-height:1.45}
 input{font-size:16px}
 textarea:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+/* Wetter-Umschalter */
+.switch{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.switch-label{margin:0;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--lake);font-weight:600}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.seg button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px 14px;text-align:left;font-size:16px;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:10px}
+.seg button small{font-size:13px;font-weight:400;color:var(--muted)}
+.seg button.on{background:var(--lake);border-color:var(--lake);color:var(--bg)}
+.seg button.on small{color:var(--bg);opacity:.85}
+.switch-hint{margin:0;font-size:13px;color:var(--muted)}
+.filterbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+button.pill{padding:5px 12px;font-size:13px;border-radius:99px;background:transparent;color:var(--lake);border-color:var(--line)}
+button.pill.on{background:var(--gold-soft);border-color:var(--gold);color:var(--ink)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.vchip{font-size:12px;font-weight:600;padding:2px 8px;border-radius:99px;border:1px solid var(--line);color:var(--lake);white-space:nowrap}
+.vchip.v-gut{border-color:var(--gold);color:var(--gold)}
+.entry.is-off{opacity:.6;border-style:dashed}
+.entry-off{margin:0;font-size:13px;color:var(--muted);font-style:italic}
+select{font:inherit;font-size:16px;width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}

@@ -7,14 +7,14 @@
 <title>Steuerung · Mirelas Tag</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=5">
+<link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
 <main class="wrap">
   <header>
     <p class="eyebrow">Nur für Bejhan</p>
     <h1>Steuerung</h1>
-    <p class="lede">Was du hier freischaltest, sieht Mirela innert etwa 20 Sekunden auf ihrer Seite.</p>
+    <p class="lede">Was du hier änderst, sieht Mirela innert etwa 20 Sekunden auf ihrer Seite.</p>
   </header>
 
   <form class="panel" id="login" hidden>
@@ -27,6 +27,21 @@
   </form>
 
   <section class="panel" id="panel" hidden>
+    <div class="switch">
+      <p class="switch-label">Programm für Mirela</p>
+      <div class="seg" role="group" aria-label="Wetter-Variante">
+        <button type="button" id="v-gut" data-variant="gut">Schönwetter<small>Pilatus</small></button>
+        <button type="button" id="v-schlecht" data-variant="schlecht">Schlechtwetter<small>Schifffahrt</small></button>
+      </div>
+      <p class="switch-hint" id="switchHint"></p>
+    </div>
+
+    <div class="filterbar" role="group" aria-label="Anzeige">
+      <span>Liste zeigt</span>
+      <button type="button" class="pill" id="f-active" data-filter="active">Aktives Programm</button>
+      <button type="button" class="pill" id="f-all" data-filter="all">Alle Einträge</button>
+    </div>
+
     <p id="msg" class="msg" hidden></p>
     <ul class="entries" id="rows"></ul>
     <div id="newWrap"></div>
@@ -47,28 +62,38 @@
   </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=5"></script>
+<script src="config.js?v=6"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
   var items = [], busy = false, editing = null, confirmDel = null;
+  var variant = 'schlecht', filter = 'active';
+  var VLABEL = { beide: 'Beide', gut: 'Schönwetter', schlecht: 'Schlechtwetter' };
+
+  try { if (localStorage.getItem('adminFilter') === 'all') filter = 'all'; } catch (e) {}
 
   function $(id){ return document.getElementById(id); }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]}); }
   function say(el, text, isErr){ el.textContent = text || ''; el.hidden = !text; el.classList.toggle('err', !!isErr); }
   function val(id){ var el = $(id); return el ? el.value.trim() : ''; }
   function byId(id){ return items.find(function(x){ return x.id === id; }); }
+  function isActive(it){ return it.variant === 'beide' || it.variant === variant; }
+  function visible(){ return filter === 'all' ? items : items.filter(isActive); }
 
   function fieldHTML(id, label, opt, control){
     return '<div class="field"><label for="'+id+'">'+label+(opt?' <span class="opt">'+opt+'</span>':'')+'</label>'+control+'</div>';
   }
 
   function editorHTML(it){
-    it = it || {};
+    it = it || { variant: 'beide' };
     var del = it.id
       ? '<button type="button" class="danger'+(confirmDel===it.id?' sure':'')+'" data-act="delete">'+(confirmDel===it.id?'Ja, endgültig löschen':'Löschen')+'</button>'
       : '';
+    var opts = ['beide','gut','schlecht'].map(function(v){
+      return '<option value="'+v+'"'+(it.variant===v?' selected':'')+'>'+(v==='beide'?'Beide Programme':'Nur '+VLABEL[v])+'</option>';
+    }).join('');
     return '<form class="editor" id="editor">'+
+      fieldHTML('f-variant', 'Gilt für', '', '<select id="f-variant">'+opts+'</select>')+
       fieldHTML('f-time', 'Uhrzeit', '', '<input id="f-time" required placeholder="z. B. 14:30 – 16:00" value="'+esc(it.time_label)+'">')+
       fieldHTML('f-title', 'Titel', '', '<input id="f-title" required value="'+esc(it.title)+'">')+
       fieldHTML('f-place', 'Untertitel', 'optional', '<input id="f-place" value="'+esc(it.place)+'">')+
@@ -79,12 +104,32 @@
     '</form>';
   }
 
+  function renderSwitch(){
+    ['gut','schlecht'].forEach(function(v){
+      var b = $('v-'+v);
+      b.setAttribute('aria-pressed', variant === v ? 'true' : 'false');
+      b.classList.toggle('on', variant === v);
+      b.disabled = busy;
+    });
+    var shared = items.filter(function(x){ return x.variant === 'beide'; }).length;
+    var own = items.filter(function(x){ return x.variant === variant; }).length;
+    $('switchHint').textContent = 'Mirela sieht jetzt das ' + VLABEL[variant] + '-Programm: ' + shared + ' gemeinsame und ' + own + ' eigene Punkte.';
+    $('f-active').classList.toggle('on', filter === 'active');
+    $('f-all').classList.toggle('on', filter === 'all');
+    $('f-active').setAttribute('aria-pressed', filter === 'active' ? 'true' : 'false');
+    $('f-all').setAttribute('aria-pressed', filter === 'all' ? 'true' : 'false');
+  }
+
   function render(){
-    $('rows').innerHTML = items.map(function(it, i){
-      var on = it.revealed, dis = busy ? ' disabled' : '', open = editing === it.id;
-      return '<li class="entry'+(on?' is-on':'')+'" data-id="'+esc(it.id)+'">'+
+    renderSwitch();
+    var list = visible();
+    $('rows').innerHTML = list.map(function(it, i){
+      var on = it.revealed, dis = busy ? ' disabled' : '', open = editing === it.id, active = isActive(it);
+      var vchip = it.variant === 'beide' ? '' : '<span class="vchip v-'+it.variant+'">'+VLABEL[it.variant]+'</span>';
+      return '<li class="entry'+(on?' is-on':'')+(active?'':' is-off')+'" data-id="'+esc(it.id)+'">'+
         '<div class="entry-top"><span class="entry-time">'+esc(it.time_label)+'</span>'+
-          '<span class="chip'+(on?' on':'')+'">'+(on?'Sichtbar':'Gesperrt')+'</span></div>'+
+          '<span class="chips">'+vchip+'<span class="chip'+(on?' on':'')+'">'+(on?'Sichtbar':'Gesperrt')+'</span></span></div>'+
+        (active ? '' : '<p class="entry-off">Nicht im aktiven Programm, Mirela sieht diesen Punkt gerade nicht.</p>')+
         (open ? '' :
           '<p class="entry-title">'+esc(it.title)+'</p>'+
           (it.place ? '<p class="entry-sub">'+esc(it.place)+'</p>' : '')+
@@ -96,7 +141,7 @@
             '<button type="button" class="ghost" data-act="edit"'+dis+'>Bearbeiten</button>'+
             '<span class="spacer"></span>'+
             '<button type="button" class="icon" data-act="up" aria-label="Nach oben"'+(i===0||busy?' disabled':'')+'>↑</button>'+
-            '<button type="button" class="icon" data-act="down" aria-label="Nach unten"'+(i===items.length-1||busy?' disabled':'')+'>↓</button>'+
+            '<button type="button" class="icon" data-act="down" aria-label="Nach unten"'+(i===list.length-1||busy?' disabled':'')+'>↓</button>'+
           '</div>')+
       '</li>';
     }).join('');
@@ -105,41 +150,46 @@
     $('hideAll').disabled = busy;
   }
 
-  async function loadItems(){
-    var res = await sb.from('plan').select('*').order('sort').order('time_label');
-    if (res.error) { say($('msg'), 'Die Einträge konnten nicht geladen werden: ' + res.error.message, true); return; }
-    items = res.data || [];
+  async function loadAll(){
+    var r1 = await sb.from('plan').select('*').order('sort').order('time_label');
+    if (r1.error) { say($('msg'), 'Die Einträge konnten nicht geladen werden: ' + r1.error.message, true); return; }
+    items = r1.data || [];
+    var r2 = await sb.from('settings').select('value').eq('key', 'variant').maybeSingle();
+    if (!r2.error && r2.data) variant = r2.data.value;
     render();
   }
 
-  async function run(promises, okText){
+  async function run(steps, okText){
     busy = true; render(); say($('msg'), 'Wird gespeichert …');
-    for (var i = 0; i < promises.length; i++) {
-      var res = await promises[i]();
+    for (var i = 0; i < steps.length; i++) {
+      var res = await steps[i]();
       if (res.error) { busy = false; render(); say($('msg'), 'Speichern hat nicht geklappt: ' + res.error.message, true); return false; }
     }
     busy = false;
-    await loadItems();
+    await loadAll();
     say($('msg'), okText);
     return true;
   }
 
   function move(id, dir){
-    var i = items.findIndex(function(x){ return x.id === id; }), j = i + dir;
-    if (i < 0 || j < 0 || j >= items.length) return;
-    // Reihenfolge neu durchnummerieren, damit sie eindeutig bleibt
+    var list = visible();
+    var i = list.findIndex(function(x){ return x.id === id; }), j = i + dir;
+    if (i < 0 || j < 0 || j >= list.length) return;
+    var a = id, b = list[j].id;
     var order = items.map(function(x){ return x.id; });
-    order[i] = items[j].id; order[j] = items[i].id;
-    var changes = [];
+    var ia = order.indexOf(a), ib = order.indexOf(b);
+    order[ia] = b; order[ib] = a;
+    var steps = [];
     order.forEach(function(oid, idx){
-      var it = byId(oid);
-      if (it.sort !== idx + 1) changes.push(function(){ return sb.from('plan').update({ sort: idx + 1 }).eq('id', oid); });
+      var want = (idx + 1) * 10;
+      if (byId(oid).sort !== want) steps.push(function(){ return sb.from('plan').update({ sort: want }).eq('id', oid); });
     });
-    run(changes, 'Reihenfolge gespeichert.');
+    run(steps, 'Reihenfolge gespeichert.');
   }
 
   async function saveEditor(){
     var data = {
+      variant: val('f-variant') || 'beide',
       time_label: val('f-time'),
       title: val('f-title'),
       place: val('f-place') || null,
@@ -150,7 +200,7 @@
     var ok;
     if (editing === 'new') {
       var maxSort = items.reduce(function(m, x){ return Math.max(m, x.sort || 0); }, 0);
-      data.sort = maxSort + 1; data.revealed = false;
+      data.sort = maxSort + 10; data.revealed = false;
       ok = await run([function(){ return sb.from('plan').insert(data); }], 'Neuer Eintrag gespeichert. Er ist für Mirela noch gesperrt.');
     } else {
       var id = editing;
@@ -168,7 +218,7 @@
     else if (act === 'toggle') {
       var it = byId(id); if (!it) return;
       run([function(){ return sb.from('plan').update({ revealed: !it.revealed }).eq('id', id); }],
-          it.revealed ? 'Wieder verborgen.' : 'Freigeschaltet. Mirela sieht es gleich.');
+          it.revealed ? 'Wieder verborgen.' : (isActive(it) ? 'Freigeschaltet. Mirela sieht es gleich.' : 'Freigeschaltet. Sichtbar wird es erst im ' + VLABEL[it.variant] + '-Programm.'));
     }
     else if (act === 'edit') { editing = id; confirmDel = null; say($('msg'), ''); render(); var f = $('f-time'); if (f) f.focus(); }
     else if (act === 'cancel') { editing = null; confirmDel = null; render(); }
@@ -182,6 +232,19 @@
   $('newWrap').addEventListener('click', onAction);
   document.addEventListener('submit', function(e){
     if (e.target && e.target.id === 'editor') { e.preventDefault(); saveEditor(); }
+  });
+
+  document.querySelector('.seg').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-variant]'); if (!b || busy) return;
+    var v = b.getAttribute('data-variant'); if (v === variant) return;
+    run([function(){ return sb.from('settings').update({ value: v }).eq('key', 'variant'); }],
+        'Umgeschaltet auf ' + VLABEL[v] + '. Mirela sieht es gleich.');
+  });
+  document.querySelector('.filterbar').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-filter]'); if (!b) return;
+    filter = b.getAttribute('data-filter');
+    try { localStorage.setItem('adminFilter', filter); } catch (err) {}
+    editing = null; confirmDel = null; render();
   });
 
   $('addNew').addEventListener('click', function(){
@@ -219,7 +282,7 @@
     if (key === shown) return; shown = key;
     $('login').hidden = !!session;
     $('panel').hidden = !session;
-    if (session) loadItems();
+    if (session) loadAll();
   }
   sb.auth.getSession().then(function(r){ show(r.data.session); });
   sb.auth.onAuthStateChange(function(_event, session){ show(session); });
