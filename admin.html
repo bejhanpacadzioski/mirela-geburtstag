@@ -7,7 +7,7 @@
 <title>Steuerung · Mirelas Tag</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=15">
+<link rel="stylesheet" href="style.css?v=16">
 </head>
 <body>
 <main class="wrap">
@@ -33,6 +33,15 @@
       <div class="field"><label for="c-open">Wahl öffnet am <span class="opt">leer lassen, um die Wahl auszuschalten</span></label>
         <div class="inline"><input id="c-open" type="datetime-local"><button type="button" class="ghost" id="choiceOpenSave">Speichern</button></div></div>
       <div class="actions"><button type="button" class="danger" id="choiceReset">Wahl zurücksetzen</button></div>
+      <details class="opts-edit">
+        <summary>Überschrift und Texte der Wahl bearbeiten</summary>
+        <form id="choiceTextForm" class="editor">
+          <div class="field"><label for="ct-heading">Überschrift</label><input id="ct-heading" maxlength="80" required></div>
+          <div class="field"><label for="ct-open">Text, wenn die Wahl offen ist</label><textarea id="ct-open" rows="3"></textarea></div>
+          <div class="field"><label for="ct-wait">Text vor dem Öffnen <span class="opt">{datum} wird durch Datum und Uhrzeit ersetzt</span></label><textarea id="ct-wait" rows="2"></textarea></div>
+          <div class="actions"><button type="submit" id="choiceTextSave">Texte speichern</button></div>
+        </form>
+      </details>
       <details class="opts-edit">
         <summary>Texte der drei Karten bearbeiten</summary>
         <div id="optEditors"></div>
@@ -101,12 +110,12 @@
   </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=15"></script>
+<script src="config.js?v=16"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
   var items = [], files = [], photos = [], extras = {}, thumbs = {}, letterDirty = false, busy = false, editing = null, confirmDel = null;
-  var variant = 'pilatus', filter = 'active', textDirty = false, optImages = [], options = [], choiceState = {}, optDirty = false;
+  var variant = 'pilatus', filter = 'active', textDirty = false, choiceTextDirty = false, optImages = [], options = [], choiceState = {}, optDirty = false;
   var VLABEL = { beide: 'Alle', pilatus: 'Pilatus', schiff: 'Schifffahrt', escape: 'Escape Room' };
   var PROGRAMS = ['pilatus', 'schiff', 'escape'];
 
@@ -343,6 +352,11 @@
         if (s.key === 'choice') choiceState.choice = s.value || null;
         if (s.key === 'choice_at') choiceState.choice_at = s.value || null;
         if (s.key === 'choice_open_at') choiceState.open_at = s.value || null;
+        if (!choiceTextDirty) {
+          if (s.key === 'choice_heading') $('ct-heading').value = s.value;
+          if (s.key === 'choice_text_open') $('ct-open').value = s.value;
+          if (s.key === 'choice_text_wait') $('ct-wait').value = s.value;
+        }
         if (s.key === 'title' && !textDirty) $('t-title').value = s.value;
         if (s.key === 'subtitle' && !textDirty) $('t-subtitle').value = s.value;
         if (s.key === 'weather_date' && !textDirty) $('t-wdate').value = s.value;
@@ -456,6 +470,18 @@
     if (v) { var d = new Date(v); if (isNaN(d)) { say($('msg'), 'Bitte ein gültiges Datum wählen.', true); return; } iso = d.toISOString().replace(/\.\d{3}Z$/, 'Z'); }
     run([function(){ return sb.from('settings').update({ value: iso }).eq('key', 'choice_open_at'); }],
         iso ? 'Die Wahl öffnet am ' + fmtDateTime(iso) + '.' : 'Die Wahl ist ausgeschaltet.');
+  });
+  $('choiceTextForm').addEventListener('input', function(){ choiceTextDirty = true; });
+  $('choiceTextForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    var hd = $('ct-heading').value.trim(), op = $('ct-open').value.trim(), wt = $('ct-wait').value.trim();
+    if (!hd) { say($('msg'), 'Die Überschrift darf nicht leer sein.', true); return; }
+    choiceTextDirty = false;
+    run([
+      function(){ return sb.from('settings').update({ value: hd }).eq('key', 'choice_heading'); },
+      function(){ return sb.from('settings').update({ value: op }).eq('key', 'choice_text_open'); },
+      function(){ return sb.from('settings').update({ value: wt }).eq('key', 'choice_text_wait'); }
+    ], 'Texte der Wahl gespeichert.');
   });
   $('choiceReset').addEventListener('click', function(){
     var b = $('choiceReset');

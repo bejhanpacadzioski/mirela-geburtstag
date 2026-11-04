@@ -7,7 +7,7 @@
 <title>Alles Gute, Mirela</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=15">
+<link rel="stylesheet" href="style.css?v=16">
 </head>
 <body>
 <main class="wrap">
@@ -28,7 +28,7 @@
 <canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=15"></script>
+<script src="config.js?v=16"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -314,10 +314,10 @@
     box.className = 'choice' + (isOpen ? ' is-open' : ' is-waiting');
     box.innerHTML =
       '<p class="eyebrow">Eine Entscheidung</p>'+
-      '<h2 id="choiceTitle">Wie soll unser Nachmittag aussehen?</h2>'+
+      '<h2 id="choiceTitle">'+esc(c.heading || 'Wie soll unser Nachmittag aussehen?')+'</h2>'+
       (isOpen
-        ? '<p class="choice-lede">Drei Karten, eine Wahl. Dreh sie um, schau sie dir in Ruhe an und entscheide dich. Danach gibt es kein Zurück.</p>'
-        : '<p class="choice-lede">Drei Karten, eine Wahl. Am '+esc(fmtOpen(c.open_at))+' darfst du entscheiden.</p>'+
+        ? (c.text_open ? '<p class="choice-lede">'+esc(c.text_open)+'</p>' : '')
+        : (c.text_wait ? '<p class="choice-lede">'+esc(c.text_wait).replace(/\{datum\}/g, esc(fmtOpen(c.open_at)))+'</p>' : '')+
           '<p class="countdown" aria-live="off"><span class="cd-label">Die Wahl öffnet in</span><span class="cd-time" id="cdTime">'+countdownText(openAt - nowServer())+'</span></p>')+
       '<ul class="picks">'+opts.map(function(o){ return cardHTML(o, isOpen); }).join('')+'</ul>'+
       (isOpen
@@ -479,7 +479,7 @@
     var slots = r[0], page = r[1], files = r[2].error ? [] : (r[2].data || []), extras = r[3], ch = r[4];
     if (!ch.error && ch.data) {
       var srv = Date.parse(ch.data.now); if (!isNaN(srv)) serverOffset = srv - Date.now();
-      var ck = JSON.stringify([ch.data.open_at, ch.data.choice, ch.data.variant, ch.data.options]);
+      var ck = JSON.stringify([ch.data.open_at, ch.data.choice, ch.data.variant, ch.data.options, ch.data.heading, ch.data.text_open, ch.data.text_wait]);
       if (ck !== choiceKey && !choosing) {
         var wasPending = choicePending;
         choiceKey = ck; choiceData = ch.data;
