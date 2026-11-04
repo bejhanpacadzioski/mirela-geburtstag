@@ -7,7 +7,7 @@
 <title>Steuerung · Mirelas Tag</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
 <main class="wrap">
@@ -37,11 +37,11 @@
     </div>
 
     <details class="texts" id="textsBox">
-      <summary>Seite: Titel, Untertitel und Wetterdatum</summary>
+      <summary>Seite: Titel, Untertitel und Datum</summary>
       <form id="textForm" class="editor">
         <div class="field"><label for="t-title">Titel</label><input id="t-title" required maxlength="80"></div>
         <div class="field"><label for="t-subtitle">Untertitel <span class="opt">optional</span></label><textarea id="t-subtitle" rows="2" maxlength="240"></textarea></div>
-        <div class="field"><label for="t-wdate">Wetter anzeigen für</label><input id="t-wdate" type="date" required></div>
+        <div class="field"><label for="t-wdate">Datum des Tages <span class="opt">Kopfzeile und Wetter</span></label><input id="t-wdate" type="date" required></div>
         <div class="actions"><button type="submit" id="textSave">Speichern</button></div>
       </form>
     </details>
@@ -60,6 +60,26 @@
       <button class="ghost" id="hideAll" type="button">Alle wieder verbergen</button>
       <button class="ghost" id="logout" type="button">Abmelden</button>
     </div>
+    <section class="extra" id="letterBox">
+      <div class="extra-head"><h2>Geburtstagskarte</h2><span class="chip" id="letterChip">Gesperrt</span></div>
+      <p class="opt">Ein persönlicher Brief am Ende von Mirelas Seite. Bis zum Freischalten sieht sie nur einen verschlossenen Umschlag.</p>
+      <form id="letterForm" class="editor">
+        <div class="field"><label for="l-title">Überschrift</label><input id="l-title" maxlength="80"></div>
+        <div class="field"><label for="l-body">Dein Brief</label><textarea id="l-body" rows="8" placeholder="Liebe Mirela, …"></textarea></div>
+        <div class="actions"><button type="submit" id="letterSave">Brief speichern</button><button type="button" id="letterToggle">Freischalten</button></div>
+      </form>
+    </section>
+
+    <section class="extra" id="albumBox">
+      <div class="extra-head"><h2>Fotoalbum</h2><span class="chip" id="albumChip">Gesperrt</span></div>
+      <p class="opt">Lade tagsüber Fotos hoch. Mirela sieht nur, wie viele es schon sind, bis du das Album freischaltest.</p>
+      <div class="field"><label for="a-title">Titel des Albums</label>
+        <div class="inline"><input id="a-title" maxlength="80"><button type="button" class="ghost" id="albumTitleSave">Speichern</button></div></div>
+      <label class="attach"><input type="file" id="photoInput" accept="image/*" multiple><span>+ Fotos hochladen</span><span class="opt">werden automatisch verkleinert</span></label>
+      <ul class="pgrid" id="pgrid"></ul>
+      <div class="actions"><button type="button" id="albumToggle">Album freischalten</button></div>
+    </section>
+
     <details>
       <summary>Passwort ändern</summary>
       <form id="pwForm" class="panel" style="margin-top:12px">
@@ -72,11 +92,11 @@
   </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=9"></script>
+<script src="config.js?v=10"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-  var items = [], files = [], busy = false, editing = null, confirmDel = null;
+  var items = [], files = [], photos = [], extras = {}, thumbs = {}, letterDirty = false, busy = false, editing = null, confirmDel = null;
   var variant = 'schlecht', filter = 'active', textDirty = false;
   var VLABEL = { beide: 'Beide', gut: 'Schönwetter', schlecht: 'Schlechtwetter' };
 
@@ -169,8 +189,28 @@
     $('f-all').setAttribute('aria-pressed', filter === 'all' ? 'true' : 'false');
   }
 
+  function renderExtras(){
+    var l = extras.letter || {}, a = extras.album || {};
+    if (!letterDirty) { $('l-title').value = l.title || ''; $('l-body').value = l.body || ''; }
+    $('letterChip').textContent = l.revealed ? 'Sichtbar' : 'Gesperrt';
+    $('letterChip').classList.toggle('on', !!l.revealed);
+    $('letterToggle').textContent = l.revealed ? 'Wieder verschliessen' : 'Freischalten';
+    $('letterToggle').className = l.revealed ? 'ghost' : '';
+    if (document.activeElement !== $('a-title')) $('a-title').value = a.title || '';
+    $('albumChip').textContent = a.revealed ? 'Sichtbar' : 'Gesperrt';
+    $('albumChip').classList.toggle('on', !!a.revealed);
+    $('albumToggle').textContent = a.revealed ? 'Album wieder verbergen' : 'Album freischalten';
+    $('albumToggle').className = a.revealed ? 'ghost' : '';
+    $('pgrid').innerHTML = photos.map(function(p){
+      return '<li><img src="'+esc(thumbs[p.path] || '')+'" alt="" loading="lazy">'+
+        '<button type="button" class="icon x" data-photo="'+esc(p.id)+'" aria-label="Foto entfernen"'+(busy?' disabled':'')+'>×</button></li>';
+    }).join('');
+    ['letterSave','letterToggle','albumToggle','albumTitleSave','photoInput'].forEach(function(id){ $(id).disabled = busy; });
+  }
+
   function render(){
     renderSwitch();
+    renderExtras();
     var list = visible();
     $('rows').innerHTML = list.map(function(it, i){
       var on = it.revealed, dis = busy ? ' disabled' : '', open = editing === it.id, active = isActive(it);
@@ -204,6 +244,15 @@
     var r1 = await sb.from('plan').select('*').order('sort').order('time_label');
     if (r1.error) { say($('msg'), 'Die Einträge konnten nicht geladen werden: ' + r1.error.message, true); return; }
     items = r1.data || [];
+    var r4 = await sb.from('extras').select('*');
+    if (!r4.error) { extras = {}; (r4.data || []).forEach(function(x){ extras[x.key] = x; }); }
+    var r5 = await sb.from('photos').select('*').order('created_at');
+    photos = r5.error ? [] : (r5.data || []);
+    var missing = photos.filter(function(p){ return !thumbs[p.path]; }).map(function(p){ return p.path; });
+    if (missing.length) {
+      var su = await sb.storage.from('photos').createSignedUrls(missing, 3600);
+      (su.data || []).forEach(function(r){ if (r.signedUrl) thumbs[r.path] = r.signedUrl; });
+    }
     var r3 = await sb.from('attachments').select('*').order('created_at');
     files = r3.error ? [] : (r3.data || []);
     var r2 = await sb.from('settings').select('key,value');
@@ -335,8 +384,77 @@
       function(){ return sb.from('settings').update({ value: t }).eq('key', 'title'); },
       function(){ return sb.from('settings').update({ value: st }).eq('key', 'subtitle'); },
       function(){ return sb.from('settings').update({ value: wd }).eq('key', 'weather_date'); }
-    ], 'Seitentexte und Wetterdatum gespeichert.');
+    ], 'Seitentexte und Datum gespeichert.');
     if (ok) $('textsBox').open = false;
+  });
+
+  $('l-title').addEventListener('input', function(){ letterDirty = true; });
+  $('l-body').addEventListener('input', function(){ letterDirty = true; });
+  $('letterForm').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var t = $('l-title').value.trim(), b = $('l-body').value;
+    letterDirty = false;
+    await run([function(){ return sb.from('extras').update({ title: t || null, body: b }).eq('key', 'letter'); }], 'Brief gespeichert.');
+  });
+  $('letterToggle').addEventListener('click', function(){
+    var l = extras.letter || {};
+    if (!l.revealed && !((l.body || '').trim() || $('l-body').value.trim())) { say($('msg'), 'Schreib zuerst den Brief und speichere ihn.', true); return; }
+    var steps = [];
+    if (letterDirty) { var t = $('l-title').value.trim(), b = $('l-body').value; letterDirty = false;
+      steps.push(function(){ return sb.from('extras').update({ title: t || null, body: b }).eq('key', 'letter'); }); }
+    steps.push(function(){ return sb.from('extras').update({ revealed: !l.revealed }).eq('key', 'letter'); });
+    run(steps, l.revealed ? 'Brief wieder verschlossen.' : 'Brief freigeschaltet. Mirela kann ihn jetzt lesen.');
+  });
+  $('albumTitleSave').addEventListener('click', function(){
+    var t = $('a-title').value.trim();
+    run([function(){ return sb.from('extras').update({ title: t || null }).eq('key', 'album'); }], 'Albumtitel gespeichert.');
+  });
+  $('albumToggle').addEventListener('click', function(){
+    var a = extras.album || {};
+    run([function(){ return sb.from('extras').update({ revealed: !a.revealed }).eq('key', 'album'); }],
+        a.revealed ? 'Album wieder verborgen.' : 'Album freigeschaltet. Mirela sieht jetzt alle Fotos.');
+  });
+
+  async function shrink(file){
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return file;
+    try {
+      var bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+      var s = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
+      if (s === 1 && file.size < 2500000) return file;
+      var c = document.createElement('canvas');
+      c.width = Math.round(bmp.width * s); c.height = Math.round(bmp.height * s);
+      c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+      var blob = await new Promise(function(r){ c.toBlob(r, 'image/jpeg', 0.85); });
+      return blob || file;
+    } catch (e) { return file; }
+  }
+  $('photoInput').addEventListener('change', async function(e){
+    var list = Array.prototype.slice.call(e.target.files || []);
+    e.target.value = '';
+    if (!list.length || busy) return;
+    busy = true; render(); say($('msg'), 'Fotos werden vorbereitet …');
+    var steps = [];
+    for (var i = 0; i < list.length; i++) {
+      var blob = await shrink(list[i]);
+      if (blob.size > 20971520) { busy = false; render(); say($('msg'), list[i].name + ' ist grösser als 20 MB.', true); return; }
+      (function(b, orig){
+        var ext = b.type === 'image/jpeg' ? 'jpg' : (orig.name.split('.').pop() || 'jpg').toLowerCase();
+        var path = (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2)) + '.' + ext;
+        steps.push(function(){ return sb.storage.from('photos').upload(path, b, { contentType: b.type || orig.type || 'image/jpeg', upsert: false }); });
+        steps.push(function(){ return sb.from('photos').insert({ path: path }); });
+      })(blob, list[i]);
+    }
+    busy = false;
+    await run(steps, list.length === 1 ? 'Foto hochgeladen.' : list.length + ' Fotos hochgeladen.');
+  });
+  $('pgrid').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-photo]'); if (!b || busy) return;
+    var p = photos.find(function(x){ return x.id === b.getAttribute('data-photo'); }); if (!p) return;
+    if (b.getAttribute('data-sure') !== '1') { b.setAttribute('data-sure', '1'); b.textContent = 'Löschen?'; b.classList.add('sure'); return; }
+    run([
+      function(){ return sb.storage.from('photos').remove([p.path]); },
+      function(){ return sb.from('photos').delete().eq('id', p.id); }
+    ], 'Foto entfernt.');
   });
 
   $('addNew').addEventListener('click', function(){

@@ -7,12 +7,12 @@
 <title>Alles Gute, Mirela</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
 <main class="wrap">
   <header>
-    <p class="eyebrow">Freitag, 27. November 2026 · Luzern</p>
+    <p class="eyebrow" id="eyebrow">Freitag, 27. November 2026 · Luzern</p>
     <h1 id="pageTitle">Alles Gute, Mirela</h1>
     <p class="lede" id="pageSubtitle">Heute gehört dir. Was wir vorhaben, erfährst du erst, wenn es so weit ist.</p>
     <div class="infobar"><span class="badge" id="variantBadge" hidden></span></div>
@@ -20,10 +20,12 @@
     <div class="progress"><div class="bar"><span id="bar"></span></div><span id="count"></span></div>
   </header>
   <ol class="timeline" id="timeline"><li class="status">Dein Tag wird geladen …</li></ol>
+  <section class="letter" id="letter" hidden></section>
+  <section class="album" id="album" hidden></section>
   <p class="sign">Von Bejhan, mit Liebe.</p>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=9"></script>
+<script src="config.js?v=10"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -76,6 +78,56 @@
     if (win) win.location.href = res.data.signedUrl; else location.href = res.data.signedUrl;
   });
 
+  var ENVELOPE = '<svg viewBox="0 0 48 36" aria-hidden="true"><rect x="1.5" y="1.5" width="45" height="33" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M2 3l22 17L46 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="24" cy="21" r="4.5" fill="var(--gold)"/></svg>';
+  var CAMERA = '<svg viewBox="0 0 48 40" aria-hidden="true"><rect x="2" y="9" width="44" height="29" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 9l3-6h10l3 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="24" cy="23" r="8" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="24" cy="23" r="3" fill="var(--gold)"/></svg>';
+  var lastExtras = '', lastPhotoKey = '', letterWasOpen = null, albumWasOpen = null;
+
+  function renderLetter(l){
+    var box = $('letter');
+    if (!l || (!l.revealed && !l.exists)) { box.hidden = true; return; }
+    box.hidden = false;
+    if (!l.revealed) {
+      box.className = 'letter sealed';
+      box.innerHTML = '<span class="seal-icon">'+ENVELOPE+'</span><div><h2>Ein Brief für dich</h2><p>Er öffnet sich am Abend.</p></div>';
+      letterWasOpen = false;
+      return;
+    }
+    box.className = 'letter open' + (letterWasOpen === false ? ' fresh' : '');
+    box.innerHTML = '<h2>'+esc(l.title || 'Für dich')+'</h2><div class="letter-body">'+esc(l.body || '')+'</div><p class="letter-sign">Bejhan</p>';
+    letterWasOpen = true;
+  }
+
+  async function renderAlbum(a){
+    var box = $('album');
+    if (!a) { box.hidden = true; return; }
+    box.hidden = false;
+    if (!a.revealed) {
+      box.className = 'album sealed';
+      box.innerHTML = '<span class="seal-icon">'+CAMERA+'</span><div><h2>'+esc(a.title || 'Unser Tag in Bildern')+'</h2><p>'+
+        (a.count > 0 ? 'Schon ' + a.count + (a.count === 1 ? ' Foto' : ' Fotos') + ' gesammelt. ' : 'Heute sammeln wir hier unsere Fotos. ') +
+        'Du siehst sie am Ende des Tages.</p></div>';
+      albumWasOpen = false; lastPhotoKey = '';
+      return;
+    }
+    var photos = a.photos || [];
+    var pk = JSON.stringify(photos);
+    if (pk === lastPhotoKey && box.classList.contains('open')) return;
+    lastPhotoKey = pk;
+    var urls = {};
+    if (photos.length) {
+      var res = await sb.storage.from('photos').createSignedUrls(photos.map(function(p){ return p.path; }), 3600);
+      (res.data || []).forEach(function(r){ if (r.signedUrl) urls[r.path] = r.signedUrl; });
+    }
+    box.className = 'album open' + (albumWasOpen === false ? ' fresh' : '');
+    box.innerHTML = '<h2>'+esc(a.title || 'Unser Tag in Bildern')+'</h2>' +
+      (photos.length ? '<ul class="grid">' + photos.map(function(p){
+        var u = urls[p.path]; if (!u) return '';
+        return '<li><a href="'+esc(u)+'" target="_blank" rel="noopener"><img src="'+esc(u)+'" alt="'+esc(p.caption || 'Foto von unserem Tag')+'" loading="lazy"></a>'+
+          (p.caption ? '<span class="cap">'+esc(p.caption)+'</span>' : '') + '</li>';
+      }).join('') + '</ul>' : '<p class="muted">Noch keine Fotos.</p>');
+    albumWasOpen = true;
+  }
+
   function renderPage(p){
     if (!p) return;
     if (p.title) { $('pageTitle').textContent = p.title; document.title = p.title; }
@@ -84,12 +136,22 @@
     if (p.variant === 'gut') { b.innerHTML = SUN_SMALL + '<span>Schönwetter-Programm</span>'; b.className = 'badge sunny'; b.hidden = false; }
     else if (p.variant === 'schlecht') { b.innerHTML = RAIN_SMALL + '<span>Schlechtwetter-Programm</span>'; b.className = 'badge rainy'; b.hidden = false; }
     else b.hidden = true;
+    if (p.weather_date) {
+      try {
+        var d = new Date(p.weather_date + 'T12:00:00');
+        $('eyebrow').textContent = d.toLocaleDateString('de-CH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) + ' · Luzern';
+      } catch (err) {}
+    }
     if (p.weather_date && p.weather_date !== weatherLoadedFor) { BIRTHDAY = p.weather_date; loadWeather(); }
   }
 
   async function load(){
-    var r = await Promise.all([sb.rpc('public_slots_v3'), sb.rpc('public_page'), sb.rpc('public_attachments')]);
-    var slots = r[0], page = r[1], files = r[2].error ? [] : (r[2].data || []);
+    var r = await Promise.all([sb.rpc('public_slots_v3'), sb.rpc('public_page'), sb.rpc('public_attachments'), sb.rpc('public_extras')]);
+    var slots = r[0], page = r[1], files = r[2].error ? [] : (r[2].data || []), extras = r[3];
+    if (!extras.error && extras.data) {
+      var ek = JSON.stringify(extras.data);
+      if (ek !== lastExtras) { lastExtras = ek; renderLetter(extras.data.letter); renderAlbum(extras.data.album); }
+    }
     if (!page.error) {
       var pk = JSON.stringify(page.data);
       if (pk !== lastPage) { lastPage = pk; renderPage(page.data); }
@@ -183,6 +245,7 @@
   load();
   setTimeout(function(){ if (!weatherLoadedFor) loadWeather(); }, 3000);
   setInterval(load, 20000);
+  setInterval(function(){ lastExtras = ''; lastPhotoKey = ''; }, 50 * 60 * 1000);
   setInterval(loadWeather, 15 * 60 * 1000);
   document.addEventListener('visibilitychange', function(){ if (!document.hidden) load(); });
 })();
