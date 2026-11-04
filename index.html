@@ -7,7 +7,7 @@
 <title>Alles Gute, Mirela</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=17">
+<link rel="stylesheet" href="style.css?v=18">
 </head>
 <body>
 <main class="wrap">
@@ -28,7 +28,7 @@
 <canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=17"></script>
+<script src="config.js?v=18"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -257,8 +257,8 @@
     }).join('') + '</ol>';
   }
 
-  function cardHTML(o, enabled){
-    var sel = selected === o.key, imgs = o.images || [];
+  function cardHTML(o, enabled, idx){
+    var sel = selected === o.key, imgs = o.images || [], num = 'Option ' + (idx + 1);
     var selectBtn = enabled ? '<button type="button" class="pick-select" data-select aria-pressed="'+sel+'">'+(sel ? 'Ausgewählt' : 'Auswählen')+'</button>' : '';
     return '<li class="pick'+(sel ? ' selected' : '')+(imgs.length ? ' has-cover' : '')+'" data-key="'+esc(o.key)+'">'+
       '<div class="pick-inner">'+
@@ -266,12 +266,13 @@
           (imgs.length
             ? '<div class="pick-cover"><img src="'+esc(imgUrl(imgs[0]))+'" alt="" loading="lazy"><span class="pick-badge">'+(OPT_ICONS[o.key] || '')+'</span></div>'
             : '<span class="pick-icon">'+(OPT_ICONS[o.key] || '')+'</span>')+
+          '<p class="pick-num">'+num+'</p>'+
           '<h3>'+esc(o.teaser)+'</h3>'+
           (o.hint ? '<p>'+esc(o.hint)+'</p>' : '')+
           '<div class="pick-actions"><button type="button" class="pick-more" data-flip>Mehr erfahren</button>'+selectBtn+'</div>'+
         '</div>'+
         '<div class="pick-face pick-back" aria-hidden="true">'+
-          '<p class="pick-kicker">'+esc(o.teaser)+'</p>'+
+          '<p class="pick-kicker">'+num+' · '+esc(o.teaser)+'</p>'+
           '<h3>'+esc(o.title || o.label)+'</h3>'+
           (o.details ? '<p>'+esc(o.details)+'</p>' : '')+
           scheduleHTML(o.schedule)+
@@ -319,7 +320,7 @@
         ? (c.text_open ? '<p class="choice-lede">'+esc(c.text_open)+'</p>' : '')
         : (c.text_wait ? '<p class="choice-lede">'+esc(c.text_wait).replace(/\{datum\}/g, esc(fmtOpen(c.open_at)))+'</p>' : '')+
           '<p class="countdown" aria-live="off"><span class="cd-label">Die Wahl öffnet in</span><span class="cd-time" id="cdTime">'+countdownText(openAt - nowServer())+'</span></p>')+
-      '<ul class="picks">'+opts.map(function(o){ return cardHTML(o, isOpen); }).join('')+'</ul>'+
+      '<ul class="picks">'+opts.map(function(o, i){ return cardHTML(o, isOpen, i); }).join('')+'</ul>'+
       (isOpen
         ? '<div class="confirm" id="confirmBar"'+(selected ? '' : ' hidden')+'>'+
             '<p id="confirmText">'+(selected ? 'Deine Wahl: <b>'+esc(optByKey(selected).teaser)+'</b>' : '')+'</p>'+
