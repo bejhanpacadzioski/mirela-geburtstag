@@ -225,13 +225,13 @@ canvas.scratch.gone{opacity:0;pointer-events:none}
 .hold.holding{transform:scale(.985)}
 .choice-error{color:var(--danger)!important;font-size:14px!important}
 /* Nach der Wahl */
-.ticket{position:relative;display:flex;align-items:center;gap:14px;padding:18px;border-radius:12px;background:var(--gold-soft);border:1px dashed var(--gold);overflow:hidden}
+.ticket{position:relative;display:flex;align-items:center;gap:14px;padding:18px 18px 52px;border-radius:12px;background:var(--gold-soft);border:1px dashed var(--gold);overflow:hidden}
 .ticket-icon{flex:none;width:56px;height:56px;color:var(--lake)}
 .ticket-icon svg{width:100%;height:100%;display:block}
-.ticket-text{min-width:0;padding-right:70px}
+.ticket-text{min-width:0}
 .ticket-text h2{font-size:26px}
 .ticket-text p{margin:4px 0 0;color:var(--ink);font-size:15px}
-.stamp{position:absolute;top:14px;right:12px;transform:rotate(-12deg);padding:4px 10px;border:2px solid var(--gold);border-radius:6px;color:var(--gold);font-weight:600;font-size:12px;letter-spacing:.14em;text-transform:uppercase}
+.stamp{position:absolute;bottom:14px;right:14px;transform:rotate(-12deg);padding:4px 10px;border:2px solid var(--gold);border-radius:6px;color:var(--gold);font-weight:600;font-size:12px;letter-spacing:.14em;text-transform:uppercase}
 .ticket.fresh{animation:reveal .8s ease both}
 .ticket.fresh .stamp{animation:stamp .5s .45s cubic-bezier(.2,1.4,.4,1) both}
 @keyframes stamp{from{opacity:0;transform:rotate(-12deg) scale(2.4)}to{opacity:1;transform:rotate(-12deg) scale(1)}}
