@@ -17,12 +17,14 @@
     <p class="lede">Was du hier freischaltest, sieht Mirela innert etwa 20 Sekunden auf ihrer Seite.</p>
   </header>
 
-  <section class="panel" id="login" hidden>
-    <label for="email">Deine E-Mail-Adresse</label>
-    <input id="email" type="email" autocomplete="email" placeholder="name@beispiel.ch">
-    <div class="actions"><button id="sendLink" type="button">Login-Link senden</button></div>
+  <form class="panel" id="login" hidden>
+    <label for="email">E-Mail</label>
+    <input id="email" type="email" autocomplete="username" placeholder="name@beispiel.ch" required>
+    <label for="password">Passwort</label>
+    <input id="password" type="password" autocomplete="current-password" required>
+    <div class="actions"><button id="signIn" type="submit">Anmelden</button></div>
     <p id="loginMsg" class="msg" hidden></p>
-  </section>
+  </form>
 
   <section class="panel" id="panel" hidden>
     <p id="msg" class="msg" hidden></p>
@@ -31,6 +33,15 @@
       <button class="ghost" id="hideAll" type="button">Alle wieder verbergen</button>
       <button class="ghost" id="logout" type="button">Abmelden</button>
     </div>
+    <details>
+      <summary>Passwort ändern</summary>
+      <form id="pwForm" class="panel" style="margin-top:12px">
+        <label for="newPw">Neues Passwort (mind. 8 Zeichen)</label>
+        <input id="newPw" type="password" autocomplete="new-password" minlength="8" required>
+        <div class="actions"><button type="submit" id="pwSave">Passwort speichern</button></div>
+        <p id="pwMsg" class="msg" hidden></p>
+      </form>
+    </details>
   </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -81,14 +92,24 @@
   $('hideAll').addEventListener('click', function(){ save(null, false); });
   $('logout').addEventListener('click', function(){ sb.auth.signOut(); });
 
-  $('sendLink').addEventListener('click', async function(){
-    var email = $('email').value.trim();
-    if (!email) { say($('loginMsg'), 'Bitte gib deine E-Mail-Adresse ein.', true); return; }
-    $('sendLink').disabled = true;
-    var res = await sb.auth.signInWithOtp({ email: email, options: { emailRedirectTo: location.href.split('#')[0].split('?')[0] } });
-    $('sendLink').disabled = false;
-    if (res.error) say($('loginMsg'), 'Der Link konnte nicht gesendet werden: ' + res.error.message, true);
-    else say($('loginMsg'), 'Login-Link gesendet. Öffne ihn auf diesem Gerät.');
+  $('login').addEventListener('submit', async function(e){
+    e.preventDefault();
+    $('signIn').disabled = true; say($('loginMsg'), 'Anmeldung läuft …');
+    var res = await sb.auth.signInWithPassword({ email: $('email').value.trim(), password: $('password').value });
+    $('signIn').disabled = false;
+    if (res.error) say($('loginMsg'), 'Anmeldung fehlgeschlagen. Prüfe E-Mail und Passwort.', true);
+    else { say($('loginMsg'), ''); $('password').value = ''; }
+  });
+
+  $('pwForm').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var pw = $('newPw').value;
+    if (pw.length < 8) { say($('pwMsg'), 'Das Passwort braucht mindestens 8 Zeichen.', true); return; }
+    $('pwSave').disabled = true;
+    var res = await sb.auth.updateUser({ password: pw });
+    $('pwSave').disabled = false;
+    if (res.error) say($('pwMsg'), 'Speichern hat nicht geklappt: ' + res.error.message, true);
+    else { $('newPw').value = ''; say($('pwMsg'), 'Neues Passwort gespeichert.'); }
   });
 
   function show(session){
