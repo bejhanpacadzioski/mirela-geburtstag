@@ -7,7 +7,7 @@
 <title>Steuerung · Mirelas Tag</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=22">
+<link rel="stylesheet" href="style.css?v=23">
 </head>
 <body>
 <main class="wrap">
@@ -56,6 +56,7 @@
       <p class="switch-label">Aktives Programm</p>
       <div class="seg seg3" role="group" aria-label="Aktives Programm" id="seg"></div>
       <p class="switch-hint" id="switchHint"></p>
+      <label class="check"><input type="checkbox" id="hideLocked"> Verschlossene Punkte bei Mirela ganz ausblenden</label>
     </div>
 
     <details class="texts" id="textsBox">
@@ -115,12 +116,12 @@
   </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=22"></script>
+<script src="config.js?v=23"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
   var items = [], files = [], photos = [], extras = {}, thumbs = {}, letterDirty = false, busy = false, editing = null, confirmDel = null;
-  var albumShown = false, variant = 'pilatus', filter = 'active', textDirty = false, choiceTextDirty = false, optImages = [], options = [], choiceState = {}, optDirty = false;
+  var hideLocked = false, albumShown = false, variant = 'pilatus', filter = 'active', textDirty = false, choiceTextDirty = false, optImages = [], options = [], choiceState = {}, optDirty = false;
   var VLABEL = { beide: 'Alle', pilatus: 'Pilatus', schiff: 'Schifffahrt', escape: 'Escape Room' };
   var PROGRAMS = ['pilatus', 'schiff', 'escape'];
 
@@ -292,6 +293,8 @@
     $('letterToggle').className = l.revealed ? 'ghost' : '';
     if (document.activeElement !== $('a-title')) $('a-title').value = a.title || '';
     $('albumShown').checked = albumShown;
+    $('hideLocked').checked = hideLocked;
+    $('hideLocked').disabled = busy;
     $('albumShown').disabled = busy;
     $('albumChip').textContent = !albumShown ? 'Ausgeblendet' : (a.revealed ? 'Sichtbar' : 'Gesperrt');
     $('albumChip').classList.toggle('on', albumShown && !!a.revealed);
@@ -366,6 +369,7 @@
         if (s.key === 'choice_open_at') choiceState.open_at = s.value || null;
         if (s.key === 'choice_close_at') choiceState.close_at = s.value || null;
         if (s.key === 'album_shown') albumShown = s.value === 'true';
+        if (s.key === 'hide_locked') hideLocked = s.value === 'true';
         if (!choiceTextDirty) {
           if (s.key === 'choice_heading') $('ct-heading').value = s.value;
           if (s.key === 'choice_subtitle') $('ct-sub').value = s.value;
@@ -601,6 +605,11 @@
       steps.push(function(){ return sb.from('extras').update({ title: t || null, body: b }).eq('key', 'letter'); }); }
     steps.push(function(){ return sb.from('extras').update({ revealed: !l.revealed }).eq('key', 'letter'); });
     run(steps, l.revealed ? 'Brief wieder verschlossen.' : 'Brief freigeschaltet. Mirela kann ihn jetzt lesen.');
+  });
+  $('hideLocked').addEventListener('change', function(){
+    var v = $('hideLocked').checked ? 'true' : 'false';
+    run([function(){ return sb.from('settings').update({ value: v }).eq('key', 'hide_locked'); }],
+        v === 'true' ? 'Mirela sieht jetzt nur noch freigeschaltete Punkte.' : 'Mirela sieht wieder alle Punkte, verschlossene mit Schloss.');
   });
   $('albumShown').addEventListener('change', function(){
     var v = $('albumShown').checked ? 'true' : 'false';
