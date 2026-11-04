@@ -7,7 +7,7 @@
 <title>Steuerung · Mirelas Tag</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=21">
+<link rel="stylesheet" href="style.css?v=22">
 </head>
 <body>
 <main class="wrap">
@@ -95,6 +95,7 @@
     <section class="extra" id="albumBox">
       <div class="extra-head"><h2>Fotoalbum</h2><span class="chip" id="albumChip">Gesperrt</span></div>
       <p class="opt">Lade tagsüber Fotos hoch. Mirela sieht nur, wie viele es schon sind, bis du das Album freischaltest.</p>
+      <label class="check"><input type="checkbox" id="albumShown"> Album auf Mirelas Seite anzeigen</label>
       <div class="field"><label for="a-title">Titel des Albums</label>
         <div class="inline"><input id="a-title" maxlength="80"><button type="button" class="ghost" id="albumTitleSave">Speichern</button></div></div>
       <label class="attach"><input type="file" id="photoInput" accept="image/*" multiple><span>+ Fotos hochladen</span><span class="opt">werden automatisch verkleinert</span></label>
@@ -114,12 +115,12 @@
   </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=21"></script>
+<script src="config.js?v=22"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
   var items = [], files = [], photos = [], extras = {}, thumbs = {}, letterDirty = false, busy = false, editing = null, confirmDel = null;
-  var variant = 'pilatus', filter = 'active', textDirty = false, choiceTextDirty = false, optImages = [], options = [], choiceState = {}, optDirty = false;
+  var albumShown = false, variant = 'pilatus', filter = 'active', textDirty = false, choiceTextDirty = false, optImages = [], options = [], choiceState = {}, optDirty = false;
   var VLABEL = { beide: 'Alle', pilatus: 'Pilatus', schiff: 'Schifffahrt', escape: 'Escape Room' };
   var PROGRAMS = ['pilatus', 'schiff', 'escape'];
 
@@ -290,8 +291,10 @@
     $('letterToggle').textContent = l.revealed ? 'Wieder verschliessen' : 'Freischalten';
     $('letterToggle').className = l.revealed ? 'ghost' : '';
     if (document.activeElement !== $('a-title')) $('a-title').value = a.title || '';
-    $('albumChip').textContent = a.revealed ? 'Sichtbar' : 'Gesperrt';
-    $('albumChip').classList.toggle('on', !!a.revealed);
+    $('albumShown').checked = albumShown;
+    $('albumShown').disabled = busy;
+    $('albumChip').textContent = !albumShown ? 'Ausgeblendet' : (a.revealed ? 'Sichtbar' : 'Gesperrt');
+    $('albumChip').classList.toggle('on', albumShown && !!a.revealed);
     $('albumToggle').textContent = a.revealed ? 'Album wieder verbergen' : 'Album freischalten';
     $('albumToggle').className = a.revealed ? 'ghost' : '';
     $('pgrid').innerHTML = photos.map(function(p){
@@ -362,6 +365,7 @@
         if (s.key === 'choice_at') choiceState.choice_at = s.value || null;
         if (s.key === 'choice_open_at') choiceState.open_at = s.value || null;
         if (s.key === 'choice_close_at') choiceState.close_at = s.value || null;
+        if (s.key === 'album_shown') albumShown = s.value === 'true';
         if (!choiceTextDirty) {
           if (s.key === 'choice_heading') $('ct-heading').value = s.value;
           if (s.key === 'choice_subtitle') $('ct-sub').value = s.value;
@@ -597,6 +601,11 @@
       steps.push(function(){ return sb.from('extras').update({ title: t || null, body: b }).eq('key', 'letter'); }); }
     steps.push(function(){ return sb.from('extras').update({ revealed: !l.revealed }).eq('key', 'letter'); });
     run(steps, l.revealed ? 'Brief wieder verschlossen.' : 'Brief freigeschaltet. Mirela kann ihn jetzt lesen.');
+  });
+  $('albumShown').addEventListener('change', function(){
+    var v = $('albumShown').checked ? 'true' : 'false';
+    run([function(){ return sb.from('settings').update({ value: v }).eq('key', 'album_shown'); }],
+        v === 'true' ? 'Das Album ist auf Mirelas Seite eingeblendet.' : 'Das Album ist auf Mirelas Seite ausgeblendet.');
   });
   $('albumTitleSave').addEventListener('click', function(){
     var t = $('a-title').value.trim();
