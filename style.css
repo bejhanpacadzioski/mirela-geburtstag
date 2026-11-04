@@ -65,17 +65,25 @@ details summary:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .card .loc svg{flex:none;margin-top:3px;color:var(--gold)}
 .card .loc:hover{border-color:var(--lake)}
 .card .loc:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-/* Admin: Einträge bearbeiten */
-.rows .row{flex-direction:column;align-items:stretch;gap:10px;flex-wrap:nowrap}
-.rowhead{display:flex;align-items:center;gap:10px;min-width:0}
-.order{display:flex;flex-direction:column;gap:2px}
-button.icon{padding:2px 8px;font-size:13px;line-height:1.2;background:transparent;color:var(--lake);border-color:var(--line)}
-.rowactions{display:flex;flex-wrap:wrap;gap:8px}
+/* Admin: Einträge */
+.entries{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.entry{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.entry.is-on{border-color:var(--gold)}
+.entry-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.entry-time{font-size:14px;font-weight:600;color:var(--gold);font-variant-numeric:tabular-nums}
+.entry-title{margin:0;font-family:var(--display);font-size:20px;line-height:1.25}
+.entry-sub{margin:0;font-size:14px;font-weight:500;color:var(--lake)}
+.entry-note{margin:0;font-size:14px;color:var(--muted)}
+.entry-loc{margin:0;font-size:13px;color:var(--muted)}
+.entry-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:6px}
+.entry-actions .spacer{flex:1}
+button.icon{width:38px;padding:7px 0;font-size:15px;line-height:1.2;background:transparent;color:var(--lake);border-color:var(--line)}
 button.danger{background:transparent;color:var(--danger);border-color:var(--danger)}
 button.danger.sure{background:var(--danger);color:var(--bg)}
-.editor{display:flex;flex-direction:column;gap:8px;border-top:1px dashed var(--line);padding-top:12px}
-.editor .actions{margin-top:6px}
+.editor{display:flex;flex-direction:column;gap:12px;margin-top:6px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:14px;font-weight:600}
 .opt{font-weight:400;color:var(--muted);font-size:13px}
-textarea{font:inherit;width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);resize:vertical}
+textarea{display:block;font:inherit;font-size:16px;width:100%;min-height:84px;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);resize:vertical;line-height:1.45}
+input{font-size:16px}
 textarea:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-.newbox{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px}

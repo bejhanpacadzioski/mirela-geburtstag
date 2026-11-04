@@ -7,7 +7,7 @@
 <title>Steuerung · Mirelas Tag</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
 <main class="wrap">
@@ -28,7 +28,7 @@
 
   <section class="panel" id="panel" hidden>
     <p id="msg" class="msg" hidden></p>
-    <ul class="rows" id="rows"></ul>
+    <ul class="entries" id="rows"></ul>
     <div id="newWrap"></div>
     <div class="actions">
       <button id="addNew" type="button">Neuer Eintrag</button>
@@ -47,7 +47,7 @@
   </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js"></script>
+<script src="config.js?v=5"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -59,22 +59,21 @@
   function val(id){ var el = $(id); return el ? el.value.trim() : ''; }
   function byId(id){ return items.find(function(x){ return x.id === id; }); }
 
+  function fieldHTML(id, label, opt, control){
+    return '<div class="field"><label for="'+id+'">'+label+(opt?' <span class="opt">'+opt+'</span>':'')+'</label>'+control+'</div>';
+  }
+
   function editorHTML(it){
     it = it || {};
     var del = it.id
       ? '<button type="button" class="danger'+(confirmDel===it.id?' sure':'')+'" data-act="delete">'+(confirmDel===it.id?'Ja, endgültig löschen':'Löschen')+'</button>'
       : '';
     return '<form class="editor" id="editor">'+
-      '<label for="f-time">Uhrzeit</label>'+
-      '<input id="f-time" required placeholder="z. B. 14:30 – 16:00" value="'+esc(it.time_label)+'">'+
-      '<label for="f-title">Titel</label>'+
-      '<input id="f-title" required value="'+esc(it.title)+'">'+
-      '<label for="f-place">Untertitel <span class="opt">optional</span></label>'+
-      '<input id="f-place" value="'+esc(it.place)+'">'+
-      '<label for="f-location">Ort <span class="opt">optional, erscheint als Kartenlink</span></label>'+
-      '<input id="f-location" placeholder="z. B. Furrengasse 6, 6004 Luzern" value="'+esc(it.location)+'">'+
-      '<label for="f-note">Beschreibung <span class="opt">optional</span></label>'+
-      '<textarea id="f-note" rows="3">'+esc(it.note)+'</textarea>'+
+      fieldHTML('f-time', 'Uhrzeit', '', '<input id="f-time" required placeholder="z. B. 14:30 – 16:00" value="'+esc(it.time_label)+'">')+
+      fieldHTML('f-title', 'Titel', '', '<input id="f-title" required value="'+esc(it.title)+'">')+
+      fieldHTML('f-place', 'Untertitel', 'optional', '<input id="f-place" value="'+esc(it.place)+'">')+
+      fieldHTML('f-note', 'Beschreibung', 'optional', '<textarea id="f-note" rows="3">'+esc(it.note)+'</textarea>')+
+      fieldHTML('f-location', 'Ort', 'optional, erscheint als Kartenlink', '<input id="f-location" placeholder="z. B. Furrengasse 6, 6004 Luzern" value="'+esc(it.location)+'">')+
       '<div class="actions"><button type="submit"'+(busy?' disabled':'')+'>Speichern</button>'+
       '<button type="button" class="ghost" data-act="cancel">Abbrechen</button>'+del+'</div>'+
     '</form>';
@@ -82,24 +81,26 @@
 
   function render(){
     $('rows').innerHTML = items.map(function(it, i){
-      var on = it.revealed, dis = busy ? ' disabled' : '';
-      return '<li class="row" data-id="'+esc(it.id)+'">'+
-        '<div class="rowhead">'+
-          '<div class="order">'+
-            '<button type="button" class="icon" data-act="up" aria-label="Nach oben"'+(i===0||busy?' disabled':'')+'>▲</button>'+
-            '<button type="button" class="icon" data-act="down" aria-label="Nach unten"'+(i===items.length-1||busy?' disabled':'')+'>▼</button>'+
-          '</div>'+
-          '<div class="rt"><b>'+esc(it.title)+'</b><span>'+esc(it.time_label)+(it.location?' · '+esc(it.location):'')+'</span></div>'+
-          '<span class="chip'+(on?' on':'')+'">'+(on?'Sichtbar':'Gesperrt')+'</span>'+
-        '</div>'+
-        '<div class="rowactions">'+
-          '<button type="button" data-act="toggle"'+(on?' class="ghost"':'')+dis+'>'+(on?'Verbergen':'Freischalten')+'</button>'+
-          (editing===it.id ? '' : '<button type="button" class="ghost" data-act="edit"'+dis+'>Bearbeiten</button>')+
-        '</div>'+
-        (editing===it.id ? editorHTML(it) : '')+
+      var on = it.revealed, dis = busy ? ' disabled' : '', open = editing === it.id;
+      return '<li class="entry'+(on?' is-on':'')+'" data-id="'+esc(it.id)+'">'+
+        '<div class="entry-top"><span class="entry-time">'+esc(it.time_label)+'</span>'+
+          '<span class="chip'+(on?' on':'')+'">'+(on?'Sichtbar':'Gesperrt')+'</span></div>'+
+        (open ? '' :
+          '<p class="entry-title">'+esc(it.title)+'</p>'+
+          (it.place ? '<p class="entry-sub">'+esc(it.place)+'</p>' : '')+
+          (it.note ? '<p class="entry-note">'+esc(it.note)+'</p>' : '')+
+          (it.location ? '<p class="entry-loc">Ort: '+esc(it.location)+'</p>' : ''))+
+        (open ? editorHTML(it) :
+          '<div class="entry-actions">'+
+            '<button type="button" data-act="toggle"'+(on?' class="ghost"':'')+dis+'>'+(on?'Verbergen':'Freischalten')+'</button>'+
+            '<button type="button" class="ghost" data-act="edit"'+dis+'>Bearbeiten</button>'+
+            '<span class="spacer"></span>'+
+            '<button type="button" class="icon" data-act="up" aria-label="Nach oben"'+(i===0||busy?' disabled':'')+'>↑</button>'+
+            '<button type="button" class="icon" data-act="down" aria-label="Nach unten"'+(i===items.length-1||busy?' disabled':'')+'>↓</button>'+
+          '</div>')+
       '</li>';
     }).join('');
-    $('newWrap').innerHTML = editing === 'new' ? '<div class="newbox" data-id="new"><b>Neuer Eintrag</b>'+editorHTML(null)+'</div>' : '';
+    $('newWrap').innerHTML = editing === 'new' ? '<div class="entry" data-id="new"><p class="entry-title">Neuer Eintrag</p>'+editorHTML(null)+'</div>' : '';
     $('addNew').hidden = editing === 'new';
     $('hideAll').disabled = busy;
   }
