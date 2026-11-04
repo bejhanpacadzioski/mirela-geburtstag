@@ -7,7 +7,7 @@
 <title>Steuerung · Mirelas Tag</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=14">
+<link rel="stylesheet" href="style.css?v=15">
 </head>
 <body>
 <main class="wrap">
@@ -101,12 +101,12 @@
   </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=14"></script>
+<script src="config.js?v=15"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
   var items = [], files = [], photos = [], extras = {}, thumbs = {}, letterDirty = false, busy = false, editing = null, confirmDel = null;
-  var variant = 'pilatus', filter = 'active', textDirty = false, options = [], choiceState = {}, optDirty = false;
+  var variant = 'pilatus', filter = 'active', textDirty = false, optImages = [], options = [], choiceState = {}, optDirty = false;
   var VLABEL = { beide: 'Alle', pilatus: 'Pilatus', schiff: 'Schifffahrt', escape: 'Escape Room' };
   var PROGRAMS = ['pilatus', 'schiff', 'escape'];
 
@@ -214,6 +214,8 @@
     renderChoiceAdmin();
   }
 
+  function optImgUrl(path){ return sb.storage.from('option-images').getPublicUrl(path).data.publicUrl; }
+
   function renderChoiceAdmin(){
     var c = choiceState, chip = $('choiceChip'), st = $('choiceStatus');
     if (c.choice) {
@@ -243,10 +245,23 @@
           fieldHTML('o-'+k+'-hint', 'Kurzer Hinweis', 'Vorderseite', '<input id="o-'+k+'-hint" maxlength="120" value="'+esc(o.hint)+'">')+
           fieldHTML('o-'+k+'-title', 'Was es ist', 'Rückseite', '<input id="o-'+k+'-title" maxlength="80" value="'+esc(o.title)+'">')+
           fieldHTML('o-'+k+'-details', 'Beschreibung', 'Rückseite', '<textarea id="o-'+k+'-details" rows="3">'+esc(o.details)+'</textarea>')+
+          fieldHTML('o-'+k+'-schedule', 'Zeitplan', 'eine Zeile pro Schritt, z. B. 14:42 – 14:58 | Luzern – Alpnachstad', '<textarea id="o-'+k+'-schedule" rows="5" placeholder="14:42 – 14:58 | Luzern – Alpnachstad">'+esc(o.schedule)+'</textarea>')+
+          fieldHTML('o-'+k+'-link', 'Link', 'optional, Mirela sieht ihn auf der Rückseite', '<input id="o-'+k+'-link" type="url" inputmode="url" placeholder="https://…" value="'+esc(o.link)+'">')+
+          '<div class="field"><span class="flabel">Bilder <span class="opt">das erste ist das Titelbild der Karte</span></span>'+
+            '<ul class="pgrid" id="ogrid-'+esc(k)+'"></ul>'+
+            '<label class="attach"><input type="file" accept="image/*" multiple data-optupload="'+esc(k)+'"'+(busy?' disabled':'')+'><span>+ Bilder hinzufügen</span><span class="opt">werden automatisch verkleinert</span></label>'+
+          '</div>'+
           '<div class="actions"><button type="submit"'+(busy?' disabled':'')+'>Karte speichern</button></div>'+
         '</form>';
       }).join('');
     }
+    options.forEach(function(o){
+      var g = $('ogrid-' + o.key); if (!g) return;
+      g.innerHTML = optImages.filter(function(i){ return i.option_key === o.key; }).map(function(i){
+        return '<li><img src="'+esc(optImgUrl(i.path))+'" alt="" loading="lazy">'+
+          '<button type="button" class="icon x" data-optimg="'+esc(i.id)+'" aria-label="Bild entfernen"'+(busy?' disabled':'')+'>×</button></li>';
+      }).join('');
+    });
   }
 
   function renderExtras(){
@@ -318,6 +333,8 @@
     files = r3.error ? [] : (r3.data || []);
     var r6 = await sb.from('options').select('*').order('sort');
     if (!r6.error) options = r6.data || [];
+    var r7 = await sb.from('option_images').select('*').order('created_at');
+    if (!r7.error) optImages = r7.data || [];
     var r2 = await sb.from('settings').select('key,value');
     choiceState = {};
     if (!r2.error && r2.data) {
@@ -449,16 +466,48 @@
       function(){ return sb.from('settings').update({ value: '' }).eq('key', 'choice_at'); }
     ], 'Wahl zurückgesetzt. Mirela kann neu wählen.');
   });
-  $('optEditors').addEventListener('input', function(){ optDirty = true; });
+  $('optEditors').addEventListener('input', function(e){ if (!e.target.matches('input[type=file]')) optDirty = true; });
+  $('optEditors').addEventListener('change', async function(e){
+    var inp = e.target.closest('input[data-optupload]'); if (!inp || busy) return;
+    var k = inp.getAttribute('data-optupload'), list = Array.prototype.slice.call(inp.files || []);
+    inp.value = '';
+    if (!list.length) return;
+    busy = true; render(); say($('msg'), 'Bilder werden vorbereitet …');
+    var steps = [];
+    for (var i = 0; i < list.length; i++) {
+      var blob = await shrink(list[i]);
+      if (blob.size > 20971520) { busy = false; render(); say($('msg'), list[i].name + ' ist grösser als 20 MB.', true); return; }
+      (function(b, orig){
+        var ext = b.type === 'image/jpeg' ? 'jpg' : ((orig.name.split('.').pop() || 'jpg').toLowerCase());
+        var path = k + '/' + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2)) + '.' + ext;
+        steps.push(function(){ return sb.storage.from('option-images').upload(path, b, { contentType: b.type || orig.type || 'image/jpeg', upsert: false }); });
+        steps.push(function(){ return sb.from('option_images').insert({ option_key: k, path: path }); });
+      })(blob, list[i]);
+    }
+    busy = false;
+    await run(steps, list.length === 1 ? 'Bild hinzugefügt.' : list.length + ' Bilder hinzugefügt.');
+  });
+  $('optEditors').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-optimg]'); if (!b || busy) return;
+    var img = optImages.find(function(x){ return x.id === b.getAttribute('data-optimg'); }); if (!img) return;
+    if (b.getAttribute('data-sure') !== '1') { b.setAttribute('data-sure', '1'); b.textContent = 'Löschen?'; b.classList.add('sure'); return; }
+    run([
+      function(){ return sb.storage.from('option-images').remove([img.path]); },
+      function(){ return sb.from('option_images').delete().eq('id', img.id); }
+    ], 'Bild entfernt.');
+  });
   $('optEditors').addEventListener('submit', function(e){
     var f = e.target.closest('form[data-opt]'); if (!f) return;
     e.preventDefault();
     var k = f.getAttribute('data-opt');
     var data = {
       teaser: val('o-'+k+'-teaser'), hint: val('o-'+k+'-hint') || null,
-      title: val('o-'+k+'-title') || null, details: val('o-'+k+'-details') || null
+      title: val('o-'+k+'-title') || null, details: val('o-'+k+'-details') || null,
+      schedule: ($('o-'+k+'-schedule') ? $('o-'+k+'-schedule').value.replace(/\s+$/, '') : '') || null,
+      link: val('o-'+k+'-link') || null
     };
     if (!data.teaser) { say($('msg'), 'Die Überschrift der Karte darf nicht leer sein.', true); return; }
+    if (data.link && !/^https?:\/\//i.test(data.link)) data.link = 'https://' + data.link;
     optDirty = false;
     run([function(){ return sb.from('options').update(data).eq('key', k); }], 'Karte «' + VLABEL[k] + '» gespeichert.');
   });

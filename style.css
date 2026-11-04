@@ -252,3 +252,20 @@ canvas.confetti.on{display:block}
 .opts-edit summary{cursor:pointer;font-size:14px;font-weight:600;color:var(--lake)}
 .opt-form{border-top:1px dashed var(--line);padding-top:12px;margin-top:12px}
 .opt-head{margin:0;font-weight:600}
+/* Karten: Bild, Zeitplan, Link */
+.pick-cover{position:relative;margin:-16px -16px 4px;aspect-ratio:16/10;border-radius:11px 11px 0 0;overflow:hidden;background:var(--line)}
+.pick-cover img{width:100%;height:100%;object-fit:cover;display:block;max-width:100%}
+.pick-badge{position:absolute;left:12px;bottom:-1px;width:40px;height:40px;padding:6px;border-radius:10px 10px 0 0;background:var(--bg);color:var(--lake)}
+.is-waiting .pick-badge{background:var(--bg)}
+.pick-badge svg{width:100%;height:100%;display:block}
+.sched{list-style:none;margin:2px 0 0;padding:0;display:flex;flex-direction:column;gap:0;border-left:2px solid var(--gold);padding-left:10px}
+.sched li{display:flex;flex-direction:column;padding:4px 0}
+.sched-time{font-size:12px;font-weight:600;color:var(--gold);font-variant-numeric:tabular-nums}
+.sched-what{font-size:14px;color:var(--ink);overflow-wrap:anywhere}
+.pick-gallery{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.pick-gallery a{flex:none;width:72px;height:72px;border-radius:8px;overflow:hidden;background:var(--line)}
+.pick-gallery img{width:100%;height:100%;object-fit:cover;display:block}
+.pick-link{align-self:flex-start;font-size:14px;font-weight:600;color:var(--lake);text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}
+.ticket-sched summary{cursor:pointer;font-size:14px;font-weight:600;color:var(--lake)}
+.ticket-sched .sched{margin-top:8px}
+.flabel{font-size:14px;font-weight:600}

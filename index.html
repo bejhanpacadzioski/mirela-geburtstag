@@ -7,7 +7,7 @@
 <title>Alles Gute, Mirela</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=14">
+<link rel="stylesheet" href="style.css?v=15">
 </head>
 <body>
 <main class="wrap">
@@ -28,7 +28,7 @@
 <canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=14"></script>
+<script src="config.js?v=15"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -244,27 +244,42 @@
   }
   function optByKey(k){ return (choiceData && choiceData.options || []).find(function(o){ return o.key === k; }); }
 
+  function imgUrl(path){ return sb.storage.from('option-images').getPublicUrl(path).data.publicUrl; }
+  function hostOf(u){ try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return 'Website'; } }
+  function scheduleHTML(text){
+    if (!text) return '';
+    var rows = text.split(/\n+/).map(function(l){ return l.trim(); }).filter(Boolean);
+    if (!rows.length) return '';
+    return '<ol class="sched">' + rows.map(function(l){
+      var i = l.indexOf('|');
+      var t = i > -1 ? l.slice(0, i).trim() : '', d = i > -1 ? l.slice(i + 1).trim() : l;
+      return '<li>' + (t ? '<span class="sched-time">' + esc(t) + '</span>' : '') + '<span class="sched-what">' + esc(d) + '</span></li>';
+    }).join('') + '</ol>';
+  }
+
   function cardHTML(o, enabled){
-    var sel = selected === o.key;
-    return '<li class="pick'+(sel ? ' selected' : '')+'" data-key="'+esc(o.key)+'">'+
+    var sel = selected === o.key, imgs = o.images || [];
+    var selectBtn = enabled ? '<button type="button" class="pick-select" data-select aria-pressed="'+sel+'">'+(sel ? 'Ausgewählt' : 'Auswählen')+'</button>' : '';
+    return '<li class="pick'+(sel ? ' selected' : '')+(imgs.length ? ' has-cover' : '')+'" data-key="'+esc(o.key)+'">'+
       '<div class="pick-inner">'+
         '<div class="pick-face pick-front">'+
-          '<span class="pick-icon">'+(OPT_ICONS[o.key] || '')+'</span>'+
+          (imgs.length
+            ? '<div class="pick-cover"><img src="'+esc(imgUrl(imgs[0]))+'" alt="" loading="lazy"><span class="pick-badge">'+(OPT_ICONS[o.key] || '')+'</span></div>'
+            : '<span class="pick-icon">'+(OPT_ICONS[o.key] || '')+'</span>')+
           '<h3>'+esc(o.teaser)+'</h3>'+
           (o.hint ? '<p>'+esc(o.hint)+'</p>' : '')+
-          '<div class="pick-actions">'+
-            '<button type="button" class="pick-more" data-flip>Mehr erfahren</button>'+
-            (enabled ? '<button type="button" class="pick-select" data-select aria-pressed="'+sel+'">'+(sel ? 'Ausgewählt' : 'Auswählen')+'</button>' : '')+
-          '</div>'+
+          '<div class="pick-actions"><button type="button" class="pick-more" data-flip>Mehr erfahren</button>'+selectBtn+'</div>'+
         '</div>'+
         '<div class="pick-face pick-back" aria-hidden="true">'+
           '<p class="pick-kicker">'+esc(o.teaser)+'</p>'+
           '<h3>'+esc(o.title || o.label)+'</h3>'+
           (o.details ? '<p>'+esc(o.details)+'</p>' : '')+
-          '<div class="pick-actions">'+
-            '<button type="button" class="pick-more" data-flip>Zurück</button>'+
-            (enabled ? '<button type="button" class="pick-select" data-select aria-pressed="'+sel+'">'+(sel ? 'Ausgewählt' : 'Auswählen')+'</button>' : '')+
-          '</div>'+
+          scheduleHTML(o.schedule)+
+          (imgs.length > 1 || (imgs.length && !o.details)
+            ? '<div class="pick-gallery">' + imgs.map(function(p){ var u = imgUrl(p); return '<a href="'+esc(u)+'" target="_blank" rel="noopener"><img src="'+esc(u)+'" alt="" loading="lazy"></a>'; }).join('') + '</div>'
+            : '')+
+          (o.link ? '<a class="pick-link" href="'+esc(o.link)+'" target="_blank" rel="noopener">'+esc(hostOf(o.link))+' ↗</a>' : '')+
+          '<div class="pick-actions"><button type="button" class="pick-more" data-flip>Zurück</button>'+selectBtn+'</div>'+
         '</div>'+
       '</div></li>';
   }
@@ -287,6 +302,7 @@
           '<div class="ticket-text"><h2 id="choiceTitle">'+esc(o.teaser)+'</h2><p>'+esc(o.title || o.label || '')+'</p></div>'+
           '<span class="stamp">Gebucht</span>'+
         '</div>'+
+        (o.schedule ? '<details class="ticket-sched"><summary>Ablauf ansehen</summary>'+scheduleHTML(o.schedule)+'</details>' : '')+
         '<p class="choice-note">Die Details erfährst du am Tag selbst, Schritt für Schritt.</p>';
       return;
     }
