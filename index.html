@@ -521,7 +521,7 @@
       P.render(res.data);
       if (cfg.onChosen) cfg.onChosen(res.data);
       var t = $(id('ticket')); if (t) t.classList.add('fresh');
-      confetti();
+      kittens(18);
       renderWrap();
       lastKey = ''; load();
     }
