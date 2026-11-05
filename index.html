@@ -512,7 +512,7 @@
         if (b) { b.disabled = false; b.querySelector('.hold-label').textContent = 'Gedrückt halten zum Bestätigen'; }
         holdProgress(0);
         var err = $(id('err'));
-        if (err) { err.textContent = (res.error.message || 'Das hat nicht geklappt.') + ' Versuch es nochmals oder sag Bejhan Bescheid.'; err.hidden = false; }
+        if (err) { err.textContent = (res.error.message || 'Das hat nicht geklappt.') + ' Versuch es nochmals oder sag mir Bescheid.'; err.hidden = false; }
         return;
       }
       try { if (navigator.vibrate) navigator.vibrate([60, 40, 120]); } catch (err2) {}
@@ -850,7 +850,7 @@
   $('lockForm').addEventListener('submit', function(e){ e.preventDefault(); var v = $('pinInput').value; if (v.length === 4) tryPin(v); else $('pinMsg').textContent = 'Der Code hat vier Ziffern.'; });
   $('hintBtn').addEventListener('click', async function(){
     var res = await sb.rpc('pin_hint');
-    $('pinHint').textContent = 'Tipp: ' + ((!res.error && res.data) || 'Frag Bejhan.');
+    $('pinHint').textContent = 'Tipp: ' + ((!res.error && res.data) || 'Frag mich.');
     $('pinHint').hidden = false;
     $('hintBtn').hidden = true;
   });
