@@ -7,7 +7,7 @@
 <title>Alles Gute, Mirela</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=32">
+<link rel="stylesheet" href="style.css?v=33">
 </head>
 <body>
 <div class="lock-screen" id="lockScreen" hidden>
@@ -51,7 +51,7 @@
 <canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=32"></script>
+<script src="config.js?v=33"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -330,12 +330,16 @@
       return '<li class="pick'+(sel ? ' selected' : '')+(imgs.length ? ' has-cover' : '')+'" data-key="'+esc(o.key)+'">'+
         '<div class="pick-inner">'+
           '<div class="pick-face pick-front">'+
-            (imgs.length
-              ? '<div class="pick-cover"><img src="'+esc(imgUrl(imgs[0]))+'" alt="" loading="lazy"><span class="pick-badge">'+(OPT_ICONS[o.key] || '')+'</span></div>'
-              : '<span class="pick-icon">'+(OPT_ICONS[o.key] || '')+'</span>')+
-            '<p class="pick-num">'+num+'</p>'+
-            '<h3>'+esc(o.teaser)+'</h3>'+
-            (o.hint ? '<p>'+esc(o.hint)+'</p>' : '')+
+            '<div class="pick-row">'+
+              (imgs.length
+                ? '<span class="pick-thumb"><img src="'+esc(imgUrl(imgs[0]))+'" alt="" loading="lazy"></span>'
+                : '<span class="pick-thumb pick-thumb-icon">'+(OPT_ICONS[o.key] || '')+'</span>')+
+              '<div class="pick-text">'+
+                '<p class="pick-num">'+num+'</p>'+
+                '<h3>'+esc(o.teaser)+'</h3>'+
+                (o.hint ? '<p>'+esc(o.hint)+'</p>' : '')+
+              '</div>'+
+            '</div>'+
             '<div class="pick-actions"><button type="button" class="pick-more" data-flip>Mehr erfahren</button>'+selectBtn+'</div>'+
           '</div>'+
           '<div class="pick-face pick-back" aria-hidden="true">'+
@@ -369,7 +373,7 @@
         var o = opt(c.choice) || { teaser: c.choice, key: c.choice };
         box.className = 'choice chosen';
         box.innerHTML =
-          '<p class="step-label">'+esc(cfg.step)+' · '+esc(cfg.chosenLabel)+'</p>'+
+          '<p class="step-label"><span class="step-no">'+cfg.stepNo+'</span>'+esc(cfg.step)+' · '+esc(cfg.chosenLabel)+'</p>'+
           '<div class="ticket" id="'+id('ticket')+'">'+
             '<span class="ticket-icon">'+(OPT_ICONS[o.key] || '')+'</span>'+
             '<div class="ticket-text"><h2>'+esc(o.teaser)+'</h2><p>'+esc(o.title || o.label || '')+'</p></div>'+
@@ -384,7 +388,7 @@
         P.pending = true;
         box.className = 'choice is-waiting';
         var openAt = new Date(c.open_at);
-        box.innerHTML = '<p class="step-label">'+esc(cfg.step)+'</p><h3 class="step-title">'+heading+'</h3>'+subtitle+
+        box.innerHTML = '<p class="step-label"><span class="step-no">'+cfg.stepNo+'</span>'+esc(cfg.step)+'</p><h3 class="step-title">'+heading+'</h3>'+subtitle+
           '<ul class="picks picks-mini">'+(c.options || []).map(function(o, i){
             return '<li class="pick-mini"><span class="lock">'+LOCK+'</span><div><p class="pick-num">Option '+(i + 1)+'</p><h3>'+esc(o.teaser)+'</h3></div></li>';
           }).join('')+'</ul>';
@@ -398,7 +402,7 @@
 
       if (status === 'closed') {
         box.className = 'choice is-closed';
-        box.innerHTML = '<p class="step-label">'+esc(cfg.step)+'</p><h3 class="step-title">'+heading+'</h3>'+(c.text_closed ? '<p class="choice-lede">'+esc(c.text_closed)+'</p>' : '');
+        box.innerHTML = '<p class="step-label"><span class="step-no">'+cfg.stepNo+'</span>'+esc(cfg.step)+'</p><h3 class="step-title">'+heading+'</h3>'+(c.text_closed ? '<p class="choice-lede">'+esc(c.text_closed)+'</p>' : '');
         return;
       }
 
@@ -406,7 +410,7 @@
       var closeAt = c.close_at ? new Date(c.close_at) : null;
       box.className = 'choice is-open';
       box.innerHTML =
-        '<p class="step-label">'+esc(cfg.step)+'</p>'+
+        '<p class="step-label"><span class="step-no">'+cfg.stepNo+'</span>'+esc(cfg.step)+'</p>'+
         '<h3 class="step-title">'+heading+'</h3>'+subtitle+
         (c.text_open ? '<p class="choice-lede">'+esc(c.text_open)+'</p>' : '')+
         (closeAt && cfg.countdown
@@ -523,9 +527,9 @@
     return P;
   }
 
-  var pollPM = createPoll({ name: 'pm', box: 'choice', rpc: 'make_choice_pin', heading: 'Wie soll unser Nachmittag aussehen?', chosenLabel: 'Deine Wahl', step: 'Schritt 1 · Nachmittag', showSubtitle: false, countdown: false,
+  var pollPM = createPoll({ name: 'pm', box: 'choice', rpc: 'make_choice_pin', heading: 'Wie soll unser Nachmittag aussehen?', chosenLabel: 'Deine Wahl', step: 'Schritt 1 · Nachmittag', stepNo: 1, showSubtitle: false, countdown: false,
     onChosen: function(d){ renderBadge(d); } });
-  var pollEV = createPoll({ name: 'ev', box: 'choice2', rpc: 'make_evening_choice_pin', heading: 'Und nach dem Essen?', chosenLabel: 'Deine Wahl', step: 'Schritt 2 · Abend', showSubtitle: true, countdown: false,
+  var pollEV = createPoll({ name: 'ev', box: 'choice2', rpc: 'make_evening_choice_pin', heading: 'Und nach dem Essen?', chosenLabel: 'Deine Wahl', step: 'Schritt 2 · Abend', stepNo: 2, showSubtitle: true, countdown: false,
     onChosen: function(){ renderWrap(); } });
   pollPM.status = 'off'; pollEV.status = 'off';
 
