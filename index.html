@@ -7,7 +7,7 @@
 <title>Alles Gute, Mirela</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=25">
+<link rel="stylesheet" href="style.css?v=26">
 </head>
 <body>
 <main class="wrap">
@@ -19,8 +19,11 @@
     <section class="weather" id="weather" hidden></section>
     <div class="progress"><div class="bar"><span id="bar"></span></div><span id="count"></span></div>
   </header>
-  <section class="choice" id="choice" hidden></section>
-  <section class="choice" id="choice2" hidden></section>
+  <section class="choice-wrap" id="choiceWrap" hidden>
+    <div class="choice-head" id="choiceHead"></div>
+    <section class="choice" id="choice" hidden></section>
+    <section class="choice" id="choice2" hidden></section>
+  </section>
   <ol class="timeline" id="timeline"><li class="status">Dein Tag wird geladen …</li></ol>
   <section class="letter" id="letter" hidden></section>
   <section class="album" id="album" hidden></section>
@@ -29,7 +32,7 @@
 <canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=25"></script>
+<script src="config.js?v=26"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -147,11 +150,11 @@
     if (choicePending && (list.length || hideLocked)) {
       list.splice(hideLocked ? list.length : list.length - 1, 0,
         '<li class="slot decide"><div class="time">Nachmittag</div><div class="card"><span class="lock">'+ICON_DICE+'</span><div><h2>Du entscheidest</h2>'+
-        '<p class="note">'+(choiceOpenNow ? 'Wähl oben, wie unser Nachmittag aussieht.' : 'Das erfährst du bald.')+'</p></div></div></li>');
+        '<p class="note">'+(choiceOpenNow ? 'Wähl oben bei Schritt 1.' : 'Das erfährst du bald.')+'</p></div></div></li>');
     }
     if (eveningPending) {
       list.push('<li class="slot decide"><div class="time">Danach</div><div class="card"><span class="lock">'+ICON_DICE+'</span><div><h2>Du entscheidest</h2>'+
-        '<p class="note">'+(eveningOpenNow ? 'Wähl oben, wie der Abend ausklingt.' : 'Das erfährst du bald.')+'</p></div></div></li>');
+        '<p class="note">'+(eveningOpenNow ? 'Wähl oben bei Schritt 2.' : 'Das erfährst du bald.')+'</p></div></div></li>');
     }
     $('timeline').innerHTML = list.length ? list.join('') : '<li class="status">Der erste Moment kommt bald.</li>';
     Array.prototype.forEach.call(document.querySelectorAll('[data-scratch]'), function(card){
@@ -318,15 +321,16 @@
       P.pending = false; P.openNow = false;
       var status = choiceStatus(c);
       if (status === 'off') { box.hidden = true; return; }
+      P.status = status;
       box.hidden = false;
       var heading = esc(c.heading || cfg.heading);
-      var subtitle = c.subtitle ? '<p class="choice-sub">'+esc(c.subtitle)+'</p>' : '';
+      var subtitle = cfg.showSubtitle && c.subtitle ? '<p class="choice-sub">'+esc(c.subtitle)+'</p>' : '';
 
       if (status === 'chosen') {
         var o = opt(c.choice) || { teaser: c.choice, key: c.choice };
         box.className = 'choice chosen';
         box.innerHTML =
-          '<p class="eyebrow">'+esc(cfg.chosenLabel)+'</p>'+
+          '<p class="step-label">'+esc(cfg.step)+' · '+esc(cfg.chosenLabel)+'</p>'+
           '<div class="ticket" id="'+id('ticket')+'">'+
             '<span class="ticket-icon">'+(OPT_ICONS[o.key] || '')+'</span>'+
             '<div class="ticket-text"><h2>'+esc(o.teaser)+'</h2><p>'+esc(o.title || o.label || '')+'</p></div>'+
@@ -341,8 +345,7 @@
         P.pending = true;
         box.className = 'choice is-waiting';
         var openAt = new Date(c.open_at);
-        box.innerHTML = '<h2>'+heading+'</h2>'+subtitle+
-          (cfg.countdown ? '<p class="countdown" aria-live="off"><span class="cd-label">Die Wahl öffnet in</span><span class="cd-time" id="'+id('cd')+'">'+countdownText(openAt - nowServer())+'</span></p>' : '')+
+        box.innerHTML = '<p class="step-label">'+esc(cfg.step)+'</p><h3 class="step-title">'+heading+'</h3>'+subtitle+
           '<ul class="picks">'+(c.options || []).map(function(o, i){
             return '<li class="pick-mini"><span class="lock">'+LOCK+'</span><div><p class="pick-num">Option '+(i + 1)+'</p><h3>'+esc(o.teaser)+'</h3></div></li>';
           }).join('')+'</ul>';
@@ -356,7 +359,7 @@
 
       if (status === 'closed') {
         box.className = 'choice is-closed';
-        box.innerHTML = '<h2>'+heading+'</h2>'+(c.text_closed ? '<p class="choice-lede">'+esc(c.text_closed)+'</p>' : '');
+        box.innerHTML = '<p class="step-label">'+esc(cfg.step)+'</p><h3 class="step-title">'+heading+'</h3>'+(c.text_closed ? '<p class="choice-lede">'+esc(c.text_closed)+'</p>' : '');
         return;
       }
 
@@ -364,8 +367,8 @@
       var closeAt = c.close_at ? new Date(c.close_at) : null;
       box.className = 'choice is-open';
       box.innerHTML =
-        '<p class="eyebrow">Eine Entscheidung</p>'+
-        '<h2>'+heading+'</h2>'+subtitle+
+        '<p class="step-label">'+esc(cfg.step)+'</p>'+
+        '<h3 class="step-title">'+heading+'</h3>'+subtitle+
         (c.text_open ? '<p class="choice-lede">'+esc(c.text_open)+'</p>' : '')+
         (closeAt && cfg.countdown
           ? '<p class="deadline"><span>Wählen bis '+esc(fmtOpen(c.close_at))+'</span>'+
@@ -474,14 +477,56 @@
       if (cfg.onChosen) cfg.onChosen(res.data);
       var t = $(id('ticket')); if (t) t.classList.add('fresh');
       confetti();
+      renderWrap();
       lastKey = ''; load();
     }
     return P;
   }
 
-  var pollPM = createPoll({ name: 'pm', box: 'choice', rpc: 'make_choice', heading: 'Wie soll unser Nachmittag aussehen?', chosenLabel: 'Deine Wahl für den Nachmittag', countdown: true,
+  var pollPM = createPoll({ name: 'pm', box: 'choice', rpc: 'make_choice', heading: 'Wie soll unser Nachmittag aussehen?', chosenLabel: 'Deine Wahl', step: 'Schritt 1 · Nachmittag', showSubtitle: false, countdown: false,
     onChosen: function(d){ renderBadge(d); } });
-  var pollEV = createPoll({ name: 'ev', box: 'choice2', rpc: 'make_evening_choice', heading: 'Und nach dem Essen?', chosenLabel: 'Deine Wahl für den Abend', countdown: false });
+  var pollEV = createPoll({ name: 'ev', box: 'choice2', rpc: 'make_evening_choice', heading: 'Und nach dem Essen?', chosenLabel: 'Deine Wahl', step: 'Schritt 2 · Abend', showSubtitle: true, countdown: false,
+    onChosen: function(){ renderWrap(); } });
+  pollPM.status = 'off'; pollEV.status = 'off';
+
+  // Gemeinsamer Kopf mit einem Countdown für beide Schritte
+  var wrapTimer = null, wrapKey = '';
+  function renderWrap(){
+    var c = pollPM.data, wrap = $('choiceWrap'), head = $('choiceHead');
+    var sPM = c ? choiceStatus(c) : 'off', sEV = pollEV.data ? choiceStatus(pollEV.data) : 'off';
+    if (sPM === 'off' && sEV === 'off') { wrap.hidden = true; clearInterval(wrapTimer); wrapKey = ''; return; }
+    wrap.hidden = false;
+    var win = c || pollEV.data;
+    var phase = !win.open_at ? 'none' : (nowServer() < new Date(win.open_at) ? 'wait'
+              : (win.close_at && nowServer() >= new Date(win.close_at) ? 'closed' : 'open'));
+    var done = (sPM === 'chosen' ? 1 : 0) + (sEV === 'chosen' ? 1 : 0);
+    var steps = (sPM !== 'off' ? 1 : 0) + (sEV !== 'off' ? 1 : 0);
+    var k = JSON.stringify([phase, done, steps, c && c.main_heading, c && c.subtitle]);
+    if (k === wrapKey) return;
+    wrapKey = k;
+    clearInterval(wrapTimer);
+    var html = '<h2>'+esc((c && c.main_heading) || 'Du gestaltest mit')+'</h2>'+
+      (c && c.subtitle && done < steps ? '<p class="choice-sub">'+esc(c.subtitle)+'</p>' : '');
+    if (phase === 'wait') {
+      html += '<p class="countdown" aria-live="off"><span class="cd-label">Die Wahl öffnet in</span><span class="cd-time" id="wrapCd">'+countdownText(new Date(win.open_at) - nowServer())+'</span></p>';
+    } else if (phase === 'open' && done < steps) {
+      html += (win.close_at
+        ? '<p class="deadline"><span>Wählen bis '+esc(fmtOpen(win.close_at))+'</span><span class="deadline-left">Noch <b id="wrapCd">'+countdownText(new Date(win.close_at) - nowServer())+'</b></span></p>'
+        : '')+
+        '<p class="step-progress">'+done+' von '+steps+' gewählt</p>';
+    } else if (done === steps) {
+      html += '<p class="choice-sub">Alles entschieden. Ich freu mich!</p>';
+    }
+    head.innerHTML = html;
+    if (phase === 'wait' || (phase === 'open' && win.close_at && done < steps)) {
+      var target = new Date(phase === 'wait' ? win.open_at : win.close_at);
+      wrapTimer = setInterval(function(){
+        var left = target - nowServer();
+        if (left <= 0) { clearInterval(wrapTimer); wrapKey = ''; pollPM.key = ''; pollEV.key = ''; lastKey = ''; load(); return; }
+        var el = $('wrapCd'); if (el) el.textContent = countdownText(left);
+      }, 1000);
+    }
+  }
 
   function renderBadge(c){
     var b = $('variantBadge');
@@ -549,6 +594,7 @@
     if (!ev.error && ev.data) {
       if (pollEV.update(ev.data)) lastKey = '';
     }
+    renderWrap();
     choicePending = pollPM.pending; choiceOpenNow = pollPM.openNow;
     eveningPending = pollEV.pending; eveningOpenNow = pollEV.openNow;
     if (!extras.error && extras.data) {

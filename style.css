@@ -295,3 +295,14 @@ canvas.confetti.on{display:block}
 #evSeg{grid-template-columns:1fr 1fr}
 #evSeg button{align-items:center;text-align:center;font-size:15px;padding:12px 8px}
 .vchip.v-ev{border-color:var(--lake);color:var(--lake)}
+/* Beide Wahlen in einem Block */
+.choice-wrap{background:var(--card);border:1px solid var(--gold);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:20px;min-width:0}
+.choice-head{display:flex;flex-direction:column;gap:10px}
+.choice-head h2{margin:0;font-family:var(--display);font-weight:400;font-size:clamp(26px,7vw,32px);line-height:1.15;text-wrap:balance}
+.choice-head .choice-sub{margin:0}
+.choice-wrap .choice{border:0;border-radius:0;padding:0;background:none}
+.choice-wrap #choice2{border-top:1px dashed var(--line);padding-top:18px}
+.choice-wrap #choice[hidden] + #choice2{border-top:0;padding-top:0}
+.step-label{margin:0;font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:600;color:var(--lake)}
+.step-title{margin:0;font-family:var(--display);font-weight:400;font-size:clamp(22px,6vw,26px);line-height:1.2;text-wrap:balance}
+.step-progress{margin:0;font-size:13px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
