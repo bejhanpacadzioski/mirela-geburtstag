@@ -330,3 +330,15 @@ canvas.confetti.on{display:block}
 .intro ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
 .intro li{font-size:15px;color:var(--ink);padding-left:2px}
 .intro li::marker{color:var(--gold);font-weight:600}
+/* Übersichtlicher: Abschnitt «Dein Tag», kompakte Kacheln, ruhige Zeitspalte */
+.day-head{display:flex;flex-direction:column;gap:10px;margin-bottom:-16px}
+.day-head h2{margin:0;font-family:var(--display);font-weight:400;font-size:clamp(26px,7vw,32px);line-height:1.15}
+.day-head .progress{margin:0}
+.weather{margin-top:0}
+.time b{display:block;font-weight:600}
+.time small{display:block;font-size:12px;font-weight:500;color:var(--muted)}
+.locked .time b,.decide .time b{color:inherit}
+.picks-mini{grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:8px}
+.picks-mini .pick-mini{flex-direction:column;align-items:flex-start;gap:8px;padding:12px}
+.picks-mini .pick-mini h3{font-size:17px}
+.picks-mini .lock{width:28px;height:28px}

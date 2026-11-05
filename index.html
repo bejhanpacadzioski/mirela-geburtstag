@@ -7,7 +7,7 @@
 <title>Alles Gute, Mirela</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=31">
+<link rel="stylesheet" href="style.css?v=32">
 </head>
 <body>
 <div class="lock-screen" id="lockScreen" hidden>
@@ -32,14 +32,17 @@
     <p class="lede" id="pageSubtitle">Heute gehört dir. Was wir vorhaben, erfährst du erst, wenn es so weit ist.</p>
     <section class="intro" id="intro" hidden></section>
     <div class="infobar"><span class="badge" id="variantBadge" hidden></span></div>
-    <section class="weather" id="weather" hidden></section>
-    <div class="progress"><div class="bar"><span id="bar"></span></div><span id="count"></span></div>
   </header>
   <section class="choice-wrap" id="choiceWrap" hidden>
     <div class="choice-head" id="choiceHead"></div>
     <section class="choice" id="choice" hidden></section>
     <section class="choice" id="choice2" hidden></section>
   </section>
+  <div class="day-head">
+    <h2>Dein Tag</h2>
+    <div class="progress"><div class="bar"><span id="bar"></span></div><span id="count"></span></div>
+  </div>
+  <section class="weather" id="weather" hidden></section>
   <ol class="timeline" id="timeline"><li class="status">Dein Tag wird geladen …</li></ol>
   <section class="letter" id="letter" hidden></section>
   <section class="album" id="album" hidden></section>
@@ -48,7 +51,7 @@
 <canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=31"></script>
+<script src="config.js?v=32"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -149,6 +152,11 @@
   }
 
   var choicePending = false, choiceOpenNow = false;
+  function timeHTML(label){
+    var parts = String(label || '').split(/\s+[–-]\s+/);
+    if (parts.length === 2) return '<b>'+esc(parts[0])+'</b><small>bis '+esc(parts[1])+'</small>';
+    return '<b>'+esc(label)+'</b>';
+  }
   function render(slots, files){
     files = files || [];
     var open = slots.filter(function(s){return s.revealed});
@@ -171,12 +179,12 @@
       if (s.revealed) {
         var fresh = seenOpen && seenOpen.indexOf(rk(s)) === -1 ? ' fresh' : '';
         var cover = scratched.indexOf(rk(s)) === -1 ? ' data-scratch="'+esc(rk(s))+'"' : '';
-        return '<li class="slot open'+fresh+'"><div class="time">'+esc(s.time_label)+'</div><div class="card"'+cover+'><h2>'+esc(s.title)+'</h2>'+
+        return '<li class="slot open'+fresh+'"><div class="time">'+timeHTML(s.time_label)+'</div><div class="card"'+cover+'><h2>'+esc(s.title)+'</h2>'+
           (s.place ? '<p class="place">'+esc(s.place)+'</p>' : '') + (s.note ? '<p class="note">'+esc(s.note)+'</p>' : '') +
           (s.location ? '<a class="loc" href="'+esc(mapLink(s.location))+'" target="_blank" rel="noopener">'+PIN+'<span>'+esc(s.location)+'</span></a>' : '') +
           filesHTML(files.filter(function(f){ return f.plan_id === s.id; })) + '</div></li>';
       }
-      return '<li class="slot locked"><div class="time">'+esc(s.time_label)+'</div><div class="card"><span class="lock">'+LOCK+'</span><div><h2>Verschlossen</h2></div></div></li>';
+      return '<li class="slot locked"><div class="time">'+timeHTML(s.time_label)+'</div><div class="card"><span class="lock">'+LOCK+'</span><div><h2>Verschlossen</h2></div></div></li>';
     });
     if (choicePending && (list.length || hideLocked)) {
       list.splice(hideLocked ? list.length : list.length - 1, 0,
@@ -377,7 +385,7 @@
         box.className = 'choice is-waiting';
         var openAt = new Date(c.open_at);
         box.innerHTML = '<p class="step-label">'+esc(cfg.step)+'</p><h3 class="step-title">'+heading+'</h3>'+subtitle+
-          '<ul class="picks">'+(c.options || []).map(function(o, i){
+          '<ul class="picks picks-mini">'+(c.options || []).map(function(o, i){
             return '<li class="pick-mini"><span class="lock">'+LOCK+'</span><div><p class="pick-num">Option '+(i + 1)+'</p><h3>'+esc(o.teaser)+'</h3></div></li>';
           }).join('')+'</ul>';
         P.timer = setInterval(function(){
