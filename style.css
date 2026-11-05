@@ -292,3 +292,6 @@ canvas.confetti.on{display:block}
 .vis button.on.vis-sichtbar{background:var(--gold);color:#fff}
 .vis button.on.vis-gesperrt{background:var(--lake);color:var(--bg)}
 .vis button.on.vis-unsichtbar{background:var(--ink);color:var(--bg)}
+#evSeg{grid-template-columns:1fr 1fr}
+#evSeg button{align-items:center;text-align:center;font-size:15px;padding:12px 8px}
+.vchip.v-ev{border-color:var(--lake);color:var(--lake)}

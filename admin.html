@@ -7,7 +7,7 @@
 <title>Steuerung · Mirelas Tag</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=24">
+<link rel="stylesheet" href="style.css?v=25">
 </head>
 <body>
 <main class="wrap">
@@ -49,6 +49,28 @@
       <details class="opts-edit">
         <summary>Texte der drei Karten bearbeiten</summary>
         <div id="optEditors"></div>
+      </details>
+    </section>
+
+    <section class="extra" id="evBox">
+      <div class="extra-head"><h2>Abend nach dem Essen</h2><span class="chip" id="evChip">–</span></div>
+      <p class="choice-status" id="evStatus"></p>
+      <p class="opt">Mirela wählt im gleichen Zeitraum wie beim Nachmittag.</p>
+      <div class="field"><span class="flabel">Aktiver Abend</span><div class="seg" role="group" aria-label="Aktiver Abend" id="evSeg"></div></div>
+      <div class="actions"><button type="button" class="danger" id="evReset">Abend-Wahl zurücksetzen</button></div>
+      <details class="opts-edit">
+        <summary>Überschrift und Texte bearbeiten</summary>
+        <form id="evTextForm" class="editor">
+          <div class="field"><label for="ev-heading">Überschrift</label><input id="ev-heading" maxlength="80" required></div>
+          <div class="field"><label for="ev-sub">Untertitel</label><textarea id="ev-sub" rows="2"></textarea></div>
+          <div class="field"><label for="ev-open">Text, wenn die Wahl offen ist</label><textarea id="ev-open" rows="2"></textarea></div>
+          <div class="field"><label for="ev-closed">Text, wenn die Zeit abgelaufen ist</label><textarea id="ev-closed" rows="2"></textarea></div>
+          <div class="actions"><button type="submit">Texte speichern</button></div>
+        </form>
+      </details>
+      <details class="opts-edit">
+        <summary>Texte der zwei Karten bearbeiten</summary>
+        <div id="evEditors"></div>
       </details>
     </section>
 
@@ -116,12 +138,12 @@
   </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=24"></script>
+<script src="config.js?v=25"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
   var items = [], files = [], photos = [], extras = {}, thumbs = {}, letterDirty = false, busy = false, editing = null, confirmDel = null;
-  var hideLocked = false, albumShown = false, variant = 'pilatus', filter = 'active', textDirty = false, choiceTextDirty = false, optImages = [], options = [], choiceState = {}, optDirty = false;
+  var evState = {}, evOptions = [], evImages = [], evTextDirty = false, evOptDirty = false, hideLocked = false, albumShown = false, variant = 'pilatus', filter = 'active', textDirty = false, choiceTextDirty = false, optImages = [], options = [], choiceState = {}, optDirty = false;
   var VLABEL = { beide: 'Alle', pilatus: 'Pilatus', schiff: 'Schifffahrt', escape: 'Escape Room' };
   var PROGRAMS = ['pilatus', 'schiff', 'escape'];
 
@@ -132,7 +154,7 @@
   function say(el, text, isErr){ el.textContent = text || ''; el.hidden = !text; el.classList.toggle('err', !!isErr); }
   function val(id){ var el = $(id); return el ? el.value.trim() : ''; }
   function byId(id){ return items.find(function(x){ return x.id === id; }); }
-  function isActive(it){ return it.program === 'beide' || it.program === variant; }
+  function isActive(it){ return (it.program === 'beide' || it.program === variant) && (!it.evening || it.evening === 'immer' || it.evening === evState.variant); }
   function visible(){ return filter === 'all' ? items : items.filter(isActive); }
 
   function fieldHTML(id, label, opt, control){
@@ -149,6 +171,10 @@
     }).join('');
     return '<form class="editor" id="editor">'+
       fieldHTML('f-variant', 'Gilt für', '', '<select id="f-variant">'+opts+'</select>')+
+      fieldHTML('f-evening', 'Am Abend', '', '<select id="f-evening">'+['immer','ja','nein'].map(function(v){
+        var lbl = v === 'immer' ? 'Immer' : 'Nur bei «' + evLabel(v) + '»';
+        return '<option value="'+v+'"'+((it.evening||'immer')===v?' selected':'')+'>'+esc(lbl)+'</option>';
+      }).join('')+'</select>')+
       fieldHTML('f-time', 'Uhrzeit', '', '<input id="f-time" required placeholder="z. B. 14:30 – 16:00" value="'+esc(it.time_label)+'">')+
       fieldHTML('f-title', 'Titel', '', '<input id="f-title" required value="'+esc(it.title)+'">')+
       fieldHTML('f-place', 'Untertitel', 'optional', '<input id="f-place" value="'+esc(it.place)+'">')+
@@ -232,7 +258,62 @@
 
   function optImgUrl(path){ return sb.storage.from('option-images').getPublicUrl(path).data.publicUrl; }
 
+  function evLabel(k){ var o = evOptions.find(function(x){ return x.key === k; }); return o ? o.label : (k === 'ja' ? 'Wellness' : 'Nach Hause'); }
+
+  function renderEvAdmin(){
+    var c = choiceState, e = evState, chip = $('evChip'), st = $('evStatus');
+    if (e.choice) {
+      chip.textContent = 'Gewählt'; chip.className = 'chip on';
+      st.innerHTML = 'Mirela hat <b>' + esc(evLabel(e.choice)) + '</b> gewählt' + (e.choice_at ? ', am ' + esc(fmtDateTime(e.choice_at)) : '') + '.' +
+        (e.variant !== e.choice ? ' Aktiv ist trotzdem <b>' + esc(evLabel(e.variant)) + '</b>.' : '');
+    } else if (!c.open_at) {
+      chip.textContent = 'Aus'; chip.className = 'chip';
+      st.textContent = 'Die Wahl ist ausgeschaltet. Mirela sieht den aktiven Abend direkt.';
+    } else if (new Date(c.open_at) > new Date()) {
+      chip.textContent = 'Geplant'; chip.className = 'chip';
+      st.textContent = 'Öffnet zusammen mit der Nachmittags-Wahl am ' + fmtDateTime(c.open_at) + '.';
+    } else if (c.close_at && new Date(c.close_at) <= new Date()) {
+      chip.textContent = 'Abgelaufen'; chip.className = 'chip';
+      st.innerHTML = 'Mirela hat nicht gewählt. Sie sieht jetzt <b>' + esc(evLabel(e.variant)) + '</b>.';
+    } else {
+      chip.textContent = 'Offen'; chip.className = 'chip on';
+      st.textContent = 'Die Wahl ist offen. Mirela hat noch nicht gewählt.';
+    }
+    $('evSeg').innerHTML = ['ja','nein'].map(function(v){
+      var on = e.variant === v;
+      return '<button type="button" data-ev="'+v+'" aria-pressed="'+on+'"'+(on?' class="on"':'')+(busy?' disabled':'')+'>'+esc(evLabel(v))+'</button>';
+    }).join('');
+    $('evReset').hidden = !e.choice; $('evReset').disabled = busy;
+    if (!evOptDirty) {
+      $('evEditors').innerHTML = evOptions.map(function(o){
+        var k = o.key;
+        return '<form class="editor opt-form" data-evopt="'+esc(k)+'">'+
+          '<p class="opt-head">'+esc(o.label)+'</p>'+
+          fieldHTML('e-'+k+'-teaser', 'Überschrift auf der Karte', '', '<input id="e-'+k+'-teaser" required maxlength="40" value="'+esc(o.teaser)+'">')+
+          fieldHTML('e-'+k+'-hint', 'Kurzer Hinweis', 'Vorderseite', '<input id="e-'+k+'-hint" maxlength="120" value="'+esc(o.hint)+'">')+
+          fieldHTML('e-'+k+'-title', 'Was es ist', 'Rückseite', '<input id="e-'+k+'-title" maxlength="80" value="'+esc(o.title)+'">')+
+          fieldHTML('e-'+k+'-details', 'Beschreibung', 'Rückseite', '<textarea id="e-'+k+'-details" rows="3">'+esc(o.details)+'</textarea>')+
+          fieldHTML('e-'+k+'-schedule', 'Zeitplan', 'eine Zeile pro Schritt, z. B. 20:30 – 23:30 | Wellness', '<textarea id="e-'+k+'-schedule" rows="3">'+esc(o.schedule)+'</textarea>')+
+          fieldHTML('e-'+k+'-link', 'Link', 'optional', '<input id="e-'+k+'-link" type="url" inputmode="url" placeholder="https://…" value="'+esc(o.link)+'">')+
+          '<div class="field"><span class="flabel">Bilder <span class="opt">das erste ist das Titelbild der Karte</span></span>'+
+            '<ul class="pgrid" id="egrid-'+esc(k)+'"></ul>'+
+            '<label class="attach"><input type="file" accept="image/*" multiple data-evupload="'+esc(k)+'"'+(busy?' disabled':'')+'><span>+ Bilder hinzufügen</span><span class="opt">werden automatisch verkleinert</span></label>'+
+          '</div>'+
+          '<div class="actions"><button type="submit"'+(busy?' disabled':'')+'>Karte speichern</button></div>'+
+        '</form>';
+      }).join('');
+    }
+    evOptions.forEach(function(o){
+      var g = $('egrid-' + o.key); if (!g) return;
+      g.innerHTML = evImages.filter(function(i){ return i.option_key === o.key; }).map(function(i){
+        return '<li><img src="'+esc(optImgUrl(i.path))+'" alt="" loading="lazy">'+
+          '<button type="button" class="icon x" data-evimg="'+esc(i.id)+'" aria-label="Bild entfernen"'+(busy?' disabled':'')+'>×</button></li>';
+      }).join('');
+    });
+  }
+
   function renderChoiceAdmin(){
+    renderEvAdmin();
     var c = choiceState, chip = $('choiceChip'), st = $('choiceStatus');
     if (c.choice) {
       chip.textContent = 'Gewählt'; chip.className = 'chip on';
@@ -314,7 +395,8 @@
     var list = visible();
     $('rows').innerHTML = list.map(function(it, i){
       var on = it.revealed, dis = busy ? ' disabled' : '', open = editing === it.id, active = isActive(it);
-      var vchip = it.program === 'beide' ? '' : '<span class="vchip v-'+it.program+'">'+VLABEL[it.program]+'</span>';
+      var vchip = (it.program === 'beide' ? '' : '<span class="vchip v-'+it.program+'">'+VLABEL[it.program]+'</span>') +
+        (!it.evening || it.evening === 'immer' ? '' : '<span class="vchip v-ev">'+esc(evLabel(it.evening))+'</span>');
       return '<li class="entry'+(on?' is-on':'')+(active?'':' is-off')+'" data-id="'+esc(it.id)+'">'+
         '<div class="entry-top"><span class="entry-time">'+esc(it.time_label)+'</span>'+
           '<span class="chips">'+vchip+'<span class="chip'+(on?' on':'')+'">'+(on?'Sichtbar':(it.hide_when_locked || hideLocked ? 'Unsichtbar' : 'Gesperrt'))+'</span></span></div>'+
@@ -364,6 +446,10 @@
     files = r3.error ? [] : (r3.data || []);
     var r6 = await sb.from('options').select('*').order('sort');
     if (!r6.error) options = r6.data || [];
+    var r8 = await sb.from('evening_options').select('*').order('sort');
+    if (!r8.error) evOptions = r8.data || [];
+    var r9 = await sb.from('evening_images').select('*').order('created_at');
+    if (!r9.error) evImages = r9.data || [];
     var r7 = await sb.from('option_images').select('*').order('created_at');
     if (!r7.error) optImages = r7.data || [];
     var r2 = await sb.from('settings').select('key,value');
@@ -376,6 +462,15 @@
         if (s.key === 'choice_open_at') choiceState.open_at = s.value || null;
         if (s.key === 'choice_close_at') choiceState.close_at = s.value || null;
         if (s.key === 'album_shown') albumShown = s.value === 'true';
+        if (s.key === 'ev_choice') evState.choice = s.value || null;
+        if (s.key === 'ev_choice_at') evState.choice_at = s.value || null;
+        if (s.key === 'ev_variant') evState.variant = s.value;
+        if (!evTextDirty) {
+          if (s.key === 'ev_heading') $('ev-heading').value = s.value;
+          if (s.key === 'ev_subtitle') $('ev-sub').value = s.value;
+          if (s.key === 'ev_text_open') $('ev-open').value = s.value;
+          if (s.key === 'ev_text_closed') $('ev-closed').value = s.value;
+        }
         if (s.key === 'hide_locked') hideLocked = s.value === 'true';
         if (!choiceTextDirty) {
           if (s.key === 'choice_heading') $('ct-heading').value = s.value;
@@ -422,6 +517,7 @@
   async function saveEditor(){
     var data = {
       program: val('f-variant') || 'beide',
+      evening: val('f-evening') || 'immer',
       time_label: val('f-time'),
       title: val('f-title'),
       place: val('f-place') || null,
@@ -540,6 +636,78 @@
       function(){ return sb.from('settings').update({ value: '' }).eq('key', 'choice_at'); }
     ], 'Wahl zurückgesetzt. Mirela kann neu wählen.');
   });
+  $('evSeg').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-ev]'); if (!b || busy) return;
+    var v = b.getAttribute('data-ev'); if (v === evState.variant) return;
+    run([function(){ return sb.from('settings').update({ value: v }).eq('key', 'ev_variant'); }], 'Abend umgeschaltet auf «' + evLabel(v) + '».');
+  });
+  $('evReset').addEventListener('click', function(){
+    var b = $('evReset');
+    if (b.getAttribute('data-sure') !== '1') { b.setAttribute('data-sure', '1'); b.textContent = 'Wirklich zurücksetzen?'; b.classList.add('sure'); return; }
+    b.removeAttribute('data-sure'); b.textContent = 'Abend-Wahl zurücksetzen'; b.classList.remove('sure');
+    run([
+      function(){ return sb.from('settings').update({ value: '' }).eq('key', 'ev_choice'); },
+      function(){ return sb.from('settings').update({ value: '' }).eq('key', 'ev_choice_at'); }
+    ], 'Abend-Wahl zurückgesetzt.');
+  });
+  $('evTextForm').addEventListener('input', function(){ evTextDirty = true; });
+  $('evTextForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    var hd = $('ev-heading').value.trim(); if (!hd) { say($('msg'), 'Die Überschrift darf nicht leer sein.', true); return; }
+    evTextDirty = false;
+    run([
+      function(){ return sb.from('settings').update({ value: hd }).eq('key', 'ev_heading'); },
+      function(){ return sb.from('settings').update({ value: $('ev-sub').value.trim() }).eq('key', 'ev_subtitle'); },
+      function(){ return sb.from('settings').update({ value: $('ev-open').value.trim() }).eq('key', 'ev_text_open'); },
+      function(){ return sb.from('settings').update({ value: $('ev-closed').value.trim() }).eq('key', 'ev_text_closed'); }
+    ], 'Texte für den Abend gespeichert.');
+  });
+  $('evEditors').addEventListener('input', function(e){ if (!e.target.matches('input[type=file]')) evOptDirty = true; });
+  $('evEditors').addEventListener('submit', function(e){
+    var f = e.target.closest('form[data-evopt]'); if (!f) return;
+    e.preventDefault();
+    var k = f.getAttribute('data-evopt');
+    var data = {
+      teaser: val('e-'+k+'-teaser'), hint: val('e-'+k+'-hint') || null,
+      title: val('e-'+k+'-title') || null, details: val('e-'+k+'-details') || null,
+      schedule: ($('e-'+k+'-schedule').value.replace(/\s+$/, '')) || null,
+      link: val('e-'+k+'-link') || null
+    };
+    if (!data.teaser) { say($('msg'), 'Die Überschrift der Karte darf nicht leer sein.', true); return; }
+    if (data.link && !/^https?:\/\//i.test(data.link)) data.link = 'https://' + data.link;
+    evOptDirty = false;
+    run([function(){ return sb.from('evening_options').update(data).eq('key', k); }], 'Karte «' + evLabel(k) + '» gespeichert.');
+  });
+  $('evEditors').addEventListener('change', async function(e){
+    var inp = e.target.closest('input[data-evupload]'); if (!inp || busy) return;
+    var k = inp.getAttribute('data-evupload'), list = Array.prototype.slice.call(inp.files || []);
+    inp.value = '';
+    if (!list.length) return;
+    busy = true; render(); say($('msg'), 'Bilder werden vorbereitet …');
+    var steps = [];
+    for (var i = 0; i < list.length; i++) {
+      var blob = await shrink(list[i]);
+      if (blob.size > 20971520) { busy = false; render(); say($('msg'), list[i].name + ' ist grösser als 20 MB.', true); return; }
+      (function(b, orig){
+        var ext = b.type === 'image/jpeg' ? 'jpg' : ((orig.name.split('.').pop() || 'jpg').toLowerCase());
+        var path = 'abend/' + k + '/' + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2)) + '.' + ext;
+        steps.push(function(){ return sb.storage.from('option-images').upload(path, b, { contentType: b.type || orig.type || 'image/jpeg', upsert: false }); });
+        steps.push(function(){ return sb.from('evening_images').insert({ option_key: k, path: path }); });
+      })(blob, list[i]);
+    }
+    busy = false;
+    await run(steps, list.length === 1 ? 'Bild hinzugefügt.' : list.length + ' Bilder hinzugefügt.');
+  });
+  $('evEditors').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-evimg]'); if (!b || busy) return;
+    var img = evImages.find(function(x){ return x.id === b.getAttribute('data-evimg'); }); if (!img) return;
+    if (b.getAttribute('data-sure') !== '1') { b.setAttribute('data-sure', '1'); b.textContent = 'Löschen?'; b.classList.add('sure'); return; }
+    run([
+      function(){ return sb.storage.from('option-images').remove([img.path]); },
+      function(){ return sb.from('evening_images').delete().eq('id', img.id); }
+    ], 'Bild entfernt.');
+  });
+
   $('optEditors').addEventListener('input', function(e){ if (!e.target.matches('input[type=file]')) optDirty = true; });
   $('optEditors').addEventListener('change', async function(e){
     var inp = e.target.closest('input[data-optupload]'); if (!inp || busy) return;

@@ -7,7 +7,7 @@
 <title>Alles Gute, Mirela</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=24">
+<link rel="stylesheet" href="style.css?v=25">
 </head>
 <body>
 <main class="wrap">
@@ -19,7 +19,8 @@
     <section class="weather" id="weather" hidden></section>
     <div class="progress"><div class="bar"><span id="bar"></span></div><span id="count"></span></div>
   </header>
-  <section class="choice" id="choice" hidden aria-labelledby="choiceTitle"></section>
+  <section class="choice" id="choice" hidden></section>
+  <section class="choice" id="choice2" hidden></section>
   <ol class="timeline" id="timeline"><li class="status">Dein Tag wird geladen …</li></ol>
   <section class="letter" id="letter" hidden></section>
   <section class="album" id="album" hidden></section>
@@ -28,7 +29,7 @@
 <canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=24"></script>
+<script src="config.js?v=25"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -148,6 +149,10 @@
         '<li class="slot decide"><div class="time">Nachmittag</div><div class="card"><span class="lock">'+ICON_DICE+'</span><div><h2>Du entscheidest</h2>'+
         '<p class="note">'+(choiceOpenNow ? 'Wähl oben, wie unser Nachmittag aussieht.' : 'Das erfährst du bald.')+'</p></div></div></li>');
     }
+    if (eveningPending) {
+      list.push('<li class="slot decide"><div class="time">Danach</div><div class="card"><span class="lock">'+ICON_DICE+'</span><div><h2>Du entscheidest</h2>'+
+        '<p class="note">'+(eveningOpenNow ? 'Wähl oben, wie der Abend ausklingt.' : 'Das erfährst du bald.')+'</p></div></div></li>');
+    }
     $('timeline').innerHTML = list.length ? list.join('') : '<li class="status">Der erste Moment kommt bald.</li>';
     Array.prototype.forEach.call(document.querySelectorAll('[data-scratch]'), function(card){
       attachScratch(card, card.getAttribute('data-scratch'));
@@ -230,8 +235,11 @@
     pilatus: '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M3 40 18 14l8 12 5-7 14 21Z" fill="currentColor" opacity=".9"/><path d="M18 14l-4.6 8 3-1.4 2.2 2.2 2.4-2.6 2.7 1.2Z" fill="var(--card)"/><circle cx="37" cy="10" r="4" fill="var(--gold)"/></svg>',
     schiff:  '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 28h32l-4 8H12Z" fill="currentColor"/><path d="M14 28v-7h18v7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/><path d="M22 21v-7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="22" cy="11" r="2.6" fill="var(--gold)"/><path d="M4 41c4 0 4-2.5 8-2.5s4 2.5 8 2.5 4-2.5 8-2.5 4 2.5 8 2.5 4-2.5 8-2.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".55"/></svg>',
     escape:  '<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="9" y="20" width="30" height="22" rx="4" fill="currentColor"/><path d="M15 20v-5a9 9 0 0 1 18 0v5" fill="none" stroke="currentColor" stroke-width="3.2"/><circle cx="24" cy="29" r="3.4" fill="var(--gold)"/><path d="M24 31v6" stroke="var(--gold)" stroke-width="3" stroke-linecap="round"/></svg>'
+    ,ja:     '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M6 30h36v4a8 8 0 0 1-8 8H14a8 8 0 0 1-8-8Z" fill="currentColor"/><path d="M16 24c-2-3 2-5 0-9M24 24c-2-3 2-5 0-9M32 24c-2-3 2-5 0-9" fill="none" stroke="var(--gold)" stroke-width="2.4" stroke-linecap="round"/></svg>',
+    nein:    '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M6 23 24 8l18 15" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/><path d="M11 21v19h26V21" fill="currentColor"/><path d="M21 40v-9h6v9" fill="var(--card)"/><circle cx="37" cy="9" r="3.6" fill="var(--gold)"/></svg>'
   };
-  var choiceData = null, choiceKey = '', serverOffset = 0, countdownTimer = null, selected = null, choosing = false;
+  var serverOffset = 0;
+  var choicePending = false, choiceOpenNow = false, eveningPending = false, eveningOpenNow = false;
 
   function fmtOpen(iso){
     try { return new Date(iso).toLocaleString('de-CH', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) + ' Uhr'; }
@@ -245,8 +253,6 @@
     if (d > 0) return d + (d === 1 ? ' Tag ' : ' Tage ') + p(hh) + ':' + p(mm) + ':' + p(ss);
     return p(hh) + ':' + p(mm) + ':' + p(ss);
   }
-  function optByKey(k){ return (choiceData && choiceData.options || []).find(function(o){ return o.key === k; }); }
-
   function imgUrl(path){ return sb.storage.from('option-images').getPublicUrl(path).data.publicUrl; }
   function hostOf(u){ try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return 'Website'; } }
   function scheduleHTML(text){
@@ -259,35 +265,6 @@
       return '<li>' + (t ? '<span class="sched-time">' + esc(t) + '</span>' : '') + '<span class="sched-what">' + esc(d) + '</span></li>';
     }).join('') + '</ol>';
   }
-
-  function cardHTML(o, enabled, idx){
-    var sel = selected === o.key, imgs = o.images || [], num = 'Option ' + (idx + 1);
-    var selectBtn = enabled ? '<button type="button" class="pick-select" data-select aria-pressed="'+sel+'">'+(sel ? 'Ausgewählt' : 'Auswählen')+'</button>' : '';
-    return '<li class="pick'+(sel ? ' selected' : '')+(imgs.length ? ' has-cover' : '')+'" data-key="'+esc(o.key)+'">'+
-      '<div class="pick-inner">'+
-        '<div class="pick-face pick-front">'+
-          (imgs.length
-            ? '<div class="pick-cover"><img src="'+esc(imgUrl(imgs[0]))+'" alt="" loading="lazy"><span class="pick-badge">'+(OPT_ICONS[o.key] || '')+'</span></div>'
-            : '<span class="pick-icon">'+(OPT_ICONS[o.key] || '')+'</span>')+
-          '<p class="pick-num">'+num+'</p>'+
-          '<h3>'+esc(o.teaser)+'</h3>'+
-          (o.hint ? '<p>'+esc(o.hint)+'</p>' : '')+
-          '<div class="pick-actions"><button type="button" class="pick-more" data-flip>Mehr erfahren</button>'+selectBtn+'</div>'+
-        '</div>'+
-        '<div class="pick-face pick-back" aria-hidden="true">'+
-          '<p class="pick-kicker">'+num+' · '+esc(o.teaser)+'</p>'+
-          '<h3>'+esc(o.title || o.label)+'</h3>'+
-          (o.details ? '<p>'+esc(o.details)+'</p>' : '')+
-          scheduleHTML(o.schedule)+
-          (imgs.length > 1 || (imgs.length && !o.details)
-            ? '<div class="pick-gallery">' + imgs.map(function(p){ var u = imgUrl(p); return '<a href="'+esc(u)+'" target="_blank" rel="noopener"><img src="'+esc(u)+'" alt="" loading="lazy"></a>'; }).join('') + '</div>'
-            : '')+
-          (o.link ? '<a class="pick-link" href="'+esc(o.link)+'" target="_blank" rel="noopener">'+esc(hostOf(o.link))+' ↗</a>' : '')+
-          '<div class="pick-actions"><button type="button" class="pick-more" data-flip>Zurück</button>'+selectBtn+'</div>'+
-        '</div>'+
-      '</div></li>';
-  }
-
   function choiceStatus(c){
     if (!c) return 'off';
     if (c.choice) return 'chosen';
@@ -298,178 +275,224 @@
     return 'open';
   }
 
-  function renderChoice(c){
-    var box = $('choice');
-    clearInterval(countdownTimer);
-    choicePending = false; choiceOpenNow = false;
-    var status = choiceStatus(c);
-    if (status === 'off') { box.hidden = true; return; }
-    box.hidden = false;
-    var heading = esc(c.heading || 'Wie soll unser Nachmittag aussehen?');
-    var subtitle = c.subtitle ? '<p class="choice-sub">'+esc(c.subtitle)+'</p>' : '';
+  function createPoll(cfg){
+    var P = { data: null, key: '', selected: null, choosing: false, timer: null, pending: false, openNow: false };
+    var box = $(cfg.box);
+    function id(x){ return x + '-' + cfg.name; }
+    function opt(k){ return (P.data && P.data.options || []).find(function(o){ return o.key === k; }); }
+    P.opt = opt;
 
-    if (status === 'chosen') {
-      var o = optByKey(c.choice) || { teaser: c.choice, key: c.choice };
-      box.className = 'choice chosen';
+    function cardHTML(o, idx){
+      var sel = P.selected === o.key, imgs = o.images || [], num = 'Option ' + (idx + 1);
+      var selectBtn = '<button type="button" class="pick-select" data-select aria-pressed="'+sel+'">'+(sel ? 'Ausgewählt' : 'Auswählen')+'</button>';
+      return '<li class="pick'+(sel ? ' selected' : '')+(imgs.length ? ' has-cover' : '')+'" data-key="'+esc(o.key)+'">'+
+        '<div class="pick-inner">'+
+          '<div class="pick-face pick-front">'+
+            (imgs.length
+              ? '<div class="pick-cover"><img src="'+esc(imgUrl(imgs[0]))+'" alt="" loading="lazy"><span class="pick-badge">'+(OPT_ICONS[o.key] || '')+'</span></div>'
+              : '<span class="pick-icon">'+(OPT_ICONS[o.key] || '')+'</span>')+
+            '<p class="pick-num">'+num+'</p>'+
+            '<h3>'+esc(o.teaser)+'</h3>'+
+            (o.hint ? '<p>'+esc(o.hint)+'</p>' : '')+
+            '<div class="pick-actions"><button type="button" class="pick-more" data-flip>Mehr erfahren</button>'+selectBtn+'</div>'+
+          '</div>'+
+          '<div class="pick-face pick-back" aria-hidden="true">'+
+            '<p class="pick-kicker">'+num+' · '+esc(o.teaser)+'</p>'+
+            '<h3>'+esc(o.title || o.label)+'</h3>'+
+            (o.details ? '<p>'+esc(o.details)+'</p>' : '')+
+            scheduleHTML(o.schedule)+
+            (imgs.length > 1 || (imgs.length && !o.details)
+              ? '<div class="pick-gallery">' + imgs.map(function(p){ var u = imgUrl(p); return '<a href="'+esc(u)+'" target="_blank" rel="noopener"><img src="'+esc(u)+'" alt="" loading="lazy"></a>'; }).join('') + '</div>'
+              : '')+
+            (o.link ? '<a class="pick-link" href="'+esc(o.link)+'" target="_blank" rel="noopener">'+esc(hostOf(o.link))+' ↗</a>' : '')+
+            '<div class="pick-actions"><button type="button" class="pick-more" data-flip>Zurück</button>'+selectBtn+'</div>'+
+          '</div>'+
+        '</div></li>';
+    }
+
+    function refresh(){ clearInterval(P.timer); P.key = ''; lastKey = ''; load(); }
+
+    P.render = function(c){
+      P.data = c;
+      clearInterval(P.timer);
+      P.pending = false; P.openNow = false;
+      var status = choiceStatus(c);
+      if (status === 'off') { box.hidden = true; return; }
+      box.hidden = false;
+      var heading = esc(c.heading || cfg.heading);
+      var subtitle = c.subtitle ? '<p class="choice-sub">'+esc(c.subtitle)+'</p>' : '';
+
+      if (status === 'chosen') {
+        var o = opt(c.choice) || { teaser: c.choice, key: c.choice };
+        box.className = 'choice chosen';
+        box.innerHTML =
+          '<p class="eyebrow">'+esc(cfg.chosenLabel)+'</p>'+
+          '<div class="ticket" id="'+id('ticket')+'">'+
+            '<span class="ticket-icon">'+(OPT_ICONS[o.key] || '')+'</span>'+
+            '<div class="ticket-text"><h2>'+esc(o.teaser)+'</h2><p>'+esc(o.title || o.label || '')+'</p></div>'+
+            '<span class="stamp">Gebucht</span>'+
+          '</div>'+
+          (o.schedule ? '<details class="ticket-sched"><summary>Ablauf ansehen</summary>'+scheduleHTML(o.schedule)+'</details>' : '')+
+          '<p class="choice-note">Die Details erfährst du am Tag selbst, Schritt für Schritt.</p>';
+        return;
+      }
+
+      if (status === 'wait') {
+        P.pending = true;
+        box.className = 'choice is-waiting';
+        var openAt = new Date(c.open_at);
+        box.innerHTML = '<h2>'+heading+'</h2>'+subtitle+
+          (cfg.countdown ? '<p class="countdown" aria-live="off"><span class="cd-label">Die Wahl öffnet in</span><span class="cd-time" id="'+id('cd')+'">'+countdownText(openAt - nowServer())+'</span></p>' : '')+
+          '<ul class="picks">'+(c.options || []).map(function(o, i){
+            return '<li class="pick-mini"><span class="lock">'+LOCK+'</span><div><p class="pick-num">Option '+(i + 1)+'</p><h3>'+esc(o.teaser)+'</h3></div></li>';
+          }).join('')+'</ul>';
+        P.timer = setInterval(function(){
+          var left = openAt - nowServer();
+          if (left <= 0) { refresh(); return; }
+          var el = $(id('cd')); if (el) el.textContent = countdownText(left);
+        }, 1000);
+        return;
+      }
+
+      if (status === 'closed') {
+        box.className = 'choice is-closed';
+        box.innerHTML = '<h2>'+heading+'</h2>'+(c.text_closed ? '<p class="choice-lede">'+esc(c.text_closed)+'</p>' : '');
+        return;
+      }
+
+      P.pending = true; P.openNow = true;
+      var closeAt = c.close_at ? new Date(c.close_at) : null;
+      box.className = 'choice is-open';
       box.innerHTML =
-        '<p class="eyebrow">Deine Wahl</p>'+
-        '<div class="ticket" id="ticket">'+
-          '<span class="ticket-icon">'+(OPT_ICONS[o.key] || '')+'</span>'+
-          '<div class="ticket-text"><h2 id="choiceTitle">'+esc(o.teaser)+'</h2><p>'+esc(o.title || o.label || '')+'</p></div>'+
-          '<span class="stamp">Gebucht</span>'+
-        '</div>'+
-        (o.schedule ? '<details class="ticket-sched"><summary>Ablauf ansehen</summary>'+scheduleHTML(o.schedule)+'</details>' : '')+
-        '<p class="choice-note">Die Details erfährst du am Tag selbst, Schritt für Schritt.</p>';
-      return;
+        '<p class="eyebrow">Eine Entscheidung</p>'+
+        '<h2>'+heading+'</h2>'+subtitle+
+        (c.text_open ? '<p class="choice-lede">'+esc(c.text_open)+'</p>' : '')+
+        (closeAt && cfg.countdown
+          ? '<p class="deadline"><span>Wählen bis '+esc(fmtOpen(c.close_at))+'</span>'+
+            '<span class="deadline-left">Noch <b id="'+id('left')+'">'+countdownText(closeAt - nowServer())+'</b></span></p>'
+          : '')+
+        '<ul class="picks">'+(c.options || []).map(cardHTML).join('')+'</ul>'+
+        '<div class="confirm" id="'+id('confirm')+'"'+(P.selected ? '' : ' hidden')+'>'+
+          '<p id="'+id('ctext')+'">'+(P.selected && opt(P.selected) ? 'Deine Wahl: <b>'+esc(opt(P.selected).teaser)+'</b>' : '')+'</p>'+
+          '<button type="button" class="hold" id="'+id('hold')+'"><span class="hold-fill"></span><span class="hold-label">Gedrückt halten zum Bestätigen</span></button>'+
+          '<p class="choice-error" id="'+id('err')+'" hidden></p>'+
+        '</div>';
+      if (closeAt) {
+        P.timer = setInterval(function(){
+          if (P.choosing) return;
+          var left = closeAt - nowServer();
+          if (left <= 0) { P.selected = null; refresh(); return; }
+          var el = $(id('left')); if (el) el.textContent = countdownText(left);
+        }, 1000);
+      }
+    };
+
+    P.update = function(c){
+      if (!c || P.choosing) return false;
+      var k = JSON.stringify([Object.assign({}, c, { now: null }), choiceStatus(c)]);
+      if (k === P.key) return false;
+      var was = P.pending;
+      P.key = k; P.render(c);
+      return was !== P.pending;
+    };
+
+    function updateConfirm(){
+      var bar = $(id('confirm')); if (!bar) return;
+      bar.hidden = !P.selected;
+      if (P.selected && opt(P.selected)) $(id('ctext')).innerHTML = 'Deine Wahl: <b>'+esc(opt(P.selected).teaser)+'</b>';
+      Array.prototype.forEach.call(box.querySelectorAll('.pick'), function(li){
+        var on = li.getAttribute('data-key') === P.selected;
+        li.classList.toggle('selected', on);
+        Array.prototype.forEach.call(li.querySelectorAll('[data-select]'), function(btn){
+          btn.setAttribute('aria-pressed', on); btn.textContent = on ? 'Ausgewählt' : 'Auswählen';
+        });
+      });
     }
 
-    if (status === 'wait') {
-      choicePending = true;
-      box.className = 'choice is-waiting';
-      var openAt = new Date(c.open_at);
-      box.innerHTML = '<h2 id="choiceTitle">'+heading+'</h2>'+subtitle+
-        '<p class="countdown" aria-live="off"><span class="cd-label">Die Wahl öffnet in</span><span class="cd-time" id="cdTime">'+countdownText(openAt - nowServer())+'</span></p>'+
-        '<ul class="picks">'+(c.options || []).map(function(o, i){
-          return '<li class="pick-mini"><span class="lock">'+LOCK+'</span><div><p class="pick-num">Option '+(i + 1)+'</p><h3>'+esc(o.teaser)+'</h3></div></li>';
-        }).join('')+'</ul>';
-      countdownTimer = setInterval(function(){
-        var left = openAt - nowServer();
-        if (left <= 0) { clearInterval(countdownTimer); choiceKey = ''; lastKey = ''; load(); return; }
-        var el = $('cdTime'); if (el) el.textContent = countdownText(left);
-      }, 1000);
-      return;
-    }
+    box.addEventListener('click', function(e){
+      var li = e.target.closest('.pick'); if (!li) return;
+      if (e.target.closest('[data-flip]')) {
+        var flipped = li.classList.toggle('flipped');
+        li.querySelector('.pick-front').setAttribute('aria-hidden', flipped);
+        li.querySelector('.pick-back').setAttribute('aria-hidden', !flipped);
+        return;
+      }
+      if (e.target.closest('[data-select]') && !P.choosing) {
+        P.selected = li.getAttribute('data-key');
+        updateConfirm();
+        try { if (navigator.vibrate) navigator.vibrate(20); } catch (err) {}
+        var bar = $(id('confirm')); if (bar && bar.scrollIntoView) bar.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'nearest' });
+      }
+    });
 
-    if (status === 'closed') {
-      box.className = 'choice is-closed';
-      box.innerHTML = '<h2 id="choiceTitle">'+heading+'</h2>'+
-        (c.text_closed ? '<p class="choice-lede">'+esc(c.text_closed)+'</p>' : '');
-      return;
+    var HOLD_MS = 1300, holdStart = 0, holdRaf = 0;
+    function holdProgress(p){ var b = $(id('hold')); if (b) b.style.setProperty('--p', p); }
+    function holdBegin(e){
+      var b = e.target.closest && e.target.closest('#' + id('hold')); if (!b || P.choosing || !P.selected) return;
+      if (e.type === 'keydown' && (e.key !== ' ' && e.key !== 'Enter' || e.repeat)) return;
+      if (e.type === 'pointerdown') { try { b.setPointerCapture(e.pointerId); } catch (err) {} }
+      e.preventDefault();
+      holdStart = performance.now();
+      b.classList.add('holding');
+      cancelAnimationFrame(holdRaf);
+      (function tick(t){
+        var p = Math.min(1, (t - holdStart) / HOLD_MS);
+        holdProgress(p);
+        if (p >= 1) { b.classList.remove('holding'); submit(); return; }
+        holdRaf = requestAnimationFrame(tick);
+      })(holdStart);
     }
-
-    // offen
-    choicePending = true; choiceOpenNow = true;
-    var opts = c.options || [];
-    var closeAt = c.close_at ? new Date(c.close_at) : null;
-    box.className = 'choice is-open';
-    box.innerHTML =
-      '<p class="eyebrow">Eine Entscheidung</p>'+
-      '<h2 id="choiceTitle">'+heading+'</h2>'+subtitle+
-      (c.text_open ? '<p class="choice-lede">'+esc(c.text_open)+'</p>' : '')+
-      (closeAt
-        ? '<p class="deadline"><span>Wählen bis '+esc(fmtOpen(c.close_at))+'</span>'+
-          '<span class="deadline-left">Noch <b id="cdLeft">'+countdownText(closeAt - nowServer())+'</b></span></p>'
-        : '')+
-      '<ul class="picks">'+opts.map(function(o, i){ return cardHTML(o, true, i); }).join('')+'</ul>'+
-      '<div class="confirm" id="confirmBar"'+(selected ? '' : ' hidden')+'>'+
-        '<p id="confirmText">'+(selected && optByKey(selected) ? 'Deine Wahl: <b>'+esc(optByKey(selected).teaser)+'</b>' : '')+'</p>'+
-        '<button type="button" class="hold" id="holdBtn"><span class="hold-fill"></span><span class="hold-label">Gedrückt halten zum Bestätigen</span></button>'+
-        '<p class="choice-error" id="choiceError" hidden></p>'+
-      '</div>';
-
-    if (closeAt) {
-      countdownTimer = setInterval(function(){
-        if (choosing) return;
-        var left = closeAt - nowServer();
-        if (left <= 0) { clearInterval(countdownTimer); selected = null; choiceKey = ''; lastKey = ''; load(); return; }
-        var el = $('cdLeft'); if (el) el.textContent = countdownText(left);
-      }, 1000);
+    function holdEnd(e){
+      var b = $(id('hold')); if (!b || P.choosing) return;
+      if (e.type === 'keyup' && e.key !== ' ' && e.key !== 'Enter') return;
+      cancelAnimationFrame(holdRaf);
+      b.classList.remove('holding');
+      holdProgress(0);
     }
+    box.addEventListener('pointerdown', holdBegin);
+    box.addEventListener('keydown', holdBegin);
+    ['pointerup','pointercancel','pointerleave','keyup'].forEach(function(t){ box.addEventListener(t, holdEnd); });
+    box.addEventListener('contextmenu', function(e){ if (e.target.closest('.hold')) e.preventDefault(); });
+
+    async function submit(){
+      if (P.choosing || !P.selected) return;
+      P.choosing = true;
+      var b = $(id('hold')); if (b) { b.disabled = true; b.querySelector('.hold-label').textContent = 'Wird gespeichert …'; }
+      var res = await sb.rpc(cfg.rpc, { opt: P.selected });
+      if (res.error) {
+        P.choosing = false;
+        if (b) { b.disabled = false; b.querySelector('.hold-label').textContent = 'Gedrückt halten zum Bestätigen'; }
+        holdProgress(0);
+        var err = $(id('err'));
+        if (err) { err.textContent = (res.error.message || 'Das hat nicht geklappt.') + ' Versuch es nochmals oder sag Bejhan Bescheid.'; err.hidden = false; }
+        return;
+      }
+      try { if (navigator.vibrate) navigator.vibrate([60, 40, 120]); } catch (err2) {}
+      P.choosing = false; P.selected = null;
+      P.key = JSON.stringify([Object.assign({}, res.data, { now: null }), choiceStatus(res.data)]);
+      P.render(res.data);
+      if (cfg.onChosen) cfg.onChosen(res.data);
+      var t = $(id('ticket')); if (t) t.classList.add('fresh');
+      confetti();
+      lastKey = ''; load();
+    }
+    return P;
   }
+
+  var pollPM = createPoll({ name: 'pm', box: 'choice', rpc: 'make_choice', heading: 'Wie soll unser Nachmittag aussehen?', chosenLabel: 'Deine Wahl für den Nachmittag', countdown: true,
+    onChosen: function(d){ renderBadge(d); } });
+  var pollEV = createPoll({ name: 'ev', box: 'choice2', rpc: 'make_evening_choice', heading: 'Und nach dem Essen?', chosenLabel: 'Deine Wahl für den Abend', countdown: false });
 
   function renderBadge(c){
     var b = $('variantBadge');
     var status = choiceStatus(c);
     if (!c || status === 'wait' || status === 'open' || !c.variant) { b.hidden = true; return; }
-    var o = optByKey(c.variant);
+    var o = pollPM.opt(c.variant);
     var label = o ? (o.title || o.label) : c.variant;
     var changed = c.choice && c.variant !== c.choice;
     b.innerHTML = '<span class="badge-icon">'+(OPT_ICONS[c.variant] || '')+'</span><span>'+(changed ? 'Planänderung: ' : 'Dein Nachmittag: ')+esc(label)+'</span>';
     b.className = 'badge sunny';
     b.hidden = false;
-  }
-
-
-  function updateConfirm(){
-    var bar = $('confirmBar'); if (!bar) return;
-    bar.hidden = !selected;
-    if (selected) $('confirmText').innerHTML = 'Deine Wahl: <b>'+esc(optByKey(selected).teaser)+'</b>';
-    Array.prototype.forEach.call(document.querySelectorAll('.pick'), function(li){
-      var on = li.getAttribute('data-key') === selected;
-      li.classList.toggle('selected', on);
-      Array.prototype.forEach.call(li.querySelectorAll('[data-select]'), function(btn){
-        btn.setAttribute('aria-pressed', on); btn.textContent = on ? 'Ausgewählt' : 'Auswählen';
-      });
-    });
-  }
-
-  $('choice').addEventListener('click', function(e){
-    var li = e.target.closest('.pick'); if (!li) return;
-    if (e.target.closest('[data-flip]')) {
-      var flipped = li.classList.toggle('flipped');
-      li.querySelector('.pick-front').setAttribute('aria-hidden', flipped);
-      li.querySelector('.pick-back').setAttribute('aria-hidden', !flipped);
-      return;
-    }
-    if (e.target.closest('[data-select]') && !choosing) {
-      selected = li.getAttribute('data-key');
-      updateConfirm();
-      try { if (navigator.vibrate) navigator.vibrate(20); } catch (err) {}
-      var bar = $('confirmBar'); if (bar && bar.scrollIntoView) bar.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'nearest' });
-    }
-  });
-
-  // Gedrückt halten zum Bestätigen
-  var HOLD_MS = 1300, holdStart = 0, holdRaf = 0;
-  function holdProgress(p){ var b = $('holdBtn'); if (b) b.style.setProperty('--p', p); }
-  function holdBegin(e){
-    var b = e.target.closest && e.target.closest('#holdBtn'); if (!b || choosing || !selected) return;
-    if (e.type === 'pointerdown') { try { b.setPointerCapture(e.pointerId); } catch (err) {} }
-    if (e.type === 'keydown' && (e.key !== ' ' && e.key !== 'Enter' || e.repeat)) return;
-    e.preventDefault();
-    holdStart = performance.now();
-    b.classList.add('holding');
-    cancelAnimationFrame(holdRaf);
-    (function tick(t){
-      var p = Math.min(1, (t - holdStart) / HOLD_MS);
-      holdProgress(p);
-      if (p >= 1) { b.classList.remove('holding'); submitChoice(); return; }
-      holdRaf = requestAnimationFrame(tick);
-    })(holdStart);
-  }
-  function holdEnd(e){
-    var b = $('holdBtn'); if (!b || choosing) return;
-    if (e.type === 'keyup' && e.key !== ' ' && e.key !== 'Enter') return;
-    cancelAnimationFrame(holdRaf);
-    b.classList.remove('holding');
-    holdProgress(0);
-  }
-  $('choice').addEventListener('pointerdown', holdBegin);
-  $('choice').addEventListener('keydown', holdBegin);
-  ['pointerup','pointercancel','pointerleave','keyup'].forEach(function(t){ $('choice').addEventListener(t, holdEnd); });
-  $('choice').addEventListener('contextmenu', function(e){ if (e.target.closest('#holdBtn')) e.preventDefault(); });
-
-  async function submitChoice(){
-    if (choosing || !selected) return;
-    choosing = true;
-    var b = $('holdBtn'); if (b) { b.disabled = true; b.querySelector('.hold-label').textContent = 'Wird gespeichert …'; }
-    var res = await sb.rpc('make_choice', { opt: selected });
-    if (res.error) {
-      choosing = false;
-      if (b) { b.disabled = false; b.querySelector('.hold-label').textContent = 'Gedrückt halten zum Bestätigen'; }
-      holdProgress(0);
-      var err = $('choiceError');
-      if (err) { err.textContent = (res.error.message || 'Das hat nicht geklappt.') + ' Versuch es nochmals oder sag Bejhan Bescheid.'; err.hidden = false; }
-      return;
-    }
-    try { if (navigator.vibrate) navigator.vibrate([60, 40, 120]); } catch (err2) {}
-    choiceData = res.data; choiceKey = JSON.stringify(res.data);
-    renderChoice(choiceData);
-    renderBadge(choiceData);
-    var t = $('ticket'); if (t) t.classList.add('fresh');
-    confetti();
-    choosing = false; selected = null;
-    lastKey = ''; load();
   }
 
   function confetti(){
@@ -516,18 +539,18 @@
   }
 
   async function load(){
-    var r = await Promise.all([sb.rpc('public_slots_v5'), sb.rpc('public_page'), sb.rpc('public_attachments'), sb.rpc('public_extras'), sb.rpc('public_choice')]);
-    var slots = r[0], page = r[1], files = r[2].error ? [] : (r[2].data || []), extras = r[3], ch = r[4];
+    var r = await Promise.all([sb.rpc('public_slots_v5'), sb.rpc('public_page'), sb.rpc('public_attachments'), sb.rpc('public_extras'), sb.rpc('public_choice'), sb.rpc('public_evening')]);
+    var slots = r[0], page = r[1], files = r[2].error ? [] : (r[2].data || []), extras = r[3], ch = r[4], ev = r[5];
     if (!ch.error && ch.data) {
       var srv = Date.parse(ch.data.now); if (!isNaN(srv)) serverOffset = srv - Date.now();
-      var ck = JSON.stringify([ch.data.open_at, ch.data.close_at, ch.data.choice, ch.data.variant, ch.data.options, ch.data.heading, ch.data.subtitle, ch.data.text_open, ch.data.text_closed, choiceStatus(ch.data)]);
-      if (ck !== choiceKey && !choosing) {
-        var wasPending = choicePending;
-        choiceKey = ck; choiceData = ch.data;
-        renderChoice(choiceData); renderBadge(choiceData);
-        if (wasPending !== choicePending) lastKey = '';
-      }
+      if (pollPM.update(ch.data)) lastKey = '';
+      renderBadge(ch.data);
     }
+    if (!ev.error && ev.data) {
+      if (pollEV.update(ev.data)) lastKey = '';
+    }
+    choicePending = pollPM.pending; choiceOpenNow = pollPM.openNow;
+    eveningPending = pollEV.pending; eveningOpenNow = pollEV.openNow;
     if (!extras.error && extras.data) {
       var ek = JSON.stringify(extras.data);
       if (ek !== lastExtras) { lastExtras = ek; renderLetter(extras.data.letter); renderAlbum(extras.data.album); }
