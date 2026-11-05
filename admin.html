@@ -155,6 +155,7 @@
       fieldHTML('f-note', 'Beschreibung', 'optional', '<textarea id="f-note" rows="3">'+esc(it.note)+'</textarea>')+
       fieldHTML('f-location', 'Ort', 'optional, erscheint als Kartenlink', '<input id="f-location" placeholder="z. B. Furrengasse 6, 6004 Luzern" value="'+esc(it.location)+'">')+
       fieldHTML('f-link', 'Link für mich', 'optional, z. B. Reservierung. Mirela sieht ihn nie.', '<input id="f-link" type="url" inputmode="url" placeholder="https://…" value="'+esc(it.admin_link)+'">')+
+      '<label class="check"><input type="checkbox" id="f-hide"'+(it.hide_when_locked?' checked':'')+'> Solange gesperrt, bei Mirela ganz ausblenden</label>'+
       '<div class="actions"><button type="submit"'+(busy?' disabled':'')+'>Speichern</button>'+
       '<button type="button" class="ghost" data-act="cancel">Abbrechen</button>'+del+'</div>'+
     '</form>';
@@ -316,7 +317,7 @@
       var vchip = it.program === 'beide' ? '' : '<span class="vchip v-'+it.program+'">'+VLABEL[it.program]+'</span>';
       return '<li class="entry'+(on?' is-on':'')+(active?'':' is-off')+'" data-id="'+esc(it.id)+'">'+
         '<div class="entry-top"><span class="entry-time">'+esc(it.time_label)+'</span>'+
-          '<span class="chips">'+vchip+'<span class="chip'+(on?' on':'')+'">'+(on?'Sichtbar':'Gesperrt')+'</span></span></div>'+
+          '<span class="chips">'+vchip+'<span class="chip'+(on?' on':'')+'">'+(on?'Sichtbar':(it.hide_when_locked || hideLocked ? 'Unsichtbar' : 'Gesperrt'))+'</span></span></div>'+
         (active ? '' : '<p class="entry-off">Nicht im aktiven Programm, Mirela sieht diesen Punkt gerade nicht.</p>')+
         (open ? '' :
           '<p class="entry-title">'+esc(it.title)+'</p>'+
@@ -420,7 +421,8 @@
       place: val('f-place') || null,
       location: val('f-location') || null,
       note: val('f-note') || null,
-      admin_link: val('f-link') || null
+      admin_link: val('f-link') || null,
+      hide_when_locked: !!($('f-hide') && $('f-hide').checked)
     };
     if (data.admin_link && !/^https?:\/\//i.test(data.admin_link)) data.admin_link = 'https://' + data.admin_link;
     if (!data.time_label || !data.title) { say($('msg'), 'Uhrzeit und Titel braucht jeder Eintrag.', true); return; }
