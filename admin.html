@@ -7,7 +7,7 @@
 <title>Steuerung · Mirelas Tag</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=28">
+<link rel="stylesheet" href="style.css?v=29">
 </head>
 <body>
 <main class="wrap">
@@ -83,10 +83,12 @@
     </div>
 
     <details class="texts" id="textsBox">
-      <summary>Seite: Titel, Datum und Code</summary>
+      <summary>Seite: Titel, Erklärung, Datum und Code</summary>
       <form id="textForm" class="editor">
         <div class="field"><label for="t-title">Titel</label><input id="t-title" required maxlength="80"></div>
         <div class="field"><label for="t-subtitle">Untertitel <span class="opt">optional</span></label><textarea id="t-subtitle" rows="2" maxlength="240"></textarea></div>
+        <div class="field"><label for="t-intro-title">Überschrift der Erklärung</label><input id="t-intro-title" maxlength="60"></div>
+        <div class="field"><label for="t-intro">Erklärung <span class="opt">eine Zeile pro Punkt, leer lassen zum Ausblenden</span></label><textarea id="t-intro" rows="5"></textarea></div>
         <div class="field"><label for="t-wdate">Datum des Tages <span class="opt">Kopfzeile und Wetter</span></label><input id="t-wdate" type="date" required></div>
         <div class="field"><label for="t-pin">Code für Mirela <span class="opt">4 Ziffern. Wenn du ihn änderst, muss sie ihn neu eingeben.</span></label><input id="t-pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" required></div>
         <div class="field"><label for="t-hint">Tipp zum Code</label><input id="t-hint" maxlength="80"></div>
@@ -141,7 +143,7 @@
   </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=28"></script>
+<script src="config.js?v=29"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -486,6 +488,8 @@
         if (s.key === 'subtitle' && !textDirty) $('t-subtitle').value = s.value;
         if (s.key === 'weather_date' && !textDirty) $('t-wdate').value = s.value;
         if (s.key === 'pin' && !textDirty) $('t-pin').value = s.value;
+        if (s.key === 'intro_title' && !textDirty) $('t-intro-title').value = s.value;
+        if (s.key === 'intro' && !textDirty) $('t-intro').value = s.value;
         if (s.key === 'pin_hint' && !textDirty) $('t-hint').value = s.value;
       });
     }
@@ -771,6 +775,8 @@
   $('t-subtitle').addEventListener('input', function(){ textDirty = true; });
   $('t-wdate').addEventListener('input', function(){ textDirty = true; });
   $('t-pin').addEventListener('input', function(){ textDirty = true; });
+  $('t-intro-title').addEventListener('input', function(){ textDirty = true; });
+  $('t-intro').addEventListener('input', function(){ textDirty = true; });
   $('t-hint').addEventListener('input', function(){ textDirty = true; });
   $('textForm').addEventListener('submit', async function(e){
     e.preventDefault();
@@ -785,6 +791,8 @@
       function(){ return sb.from('settings').update({ value: st }).eq('key', 'subtitle'); },
       function(){ return sb.from('settings').update({ value: wd }).eq('key', 'weather_date'); },
       function(){ return sb.from('settings').update({ value: pinv }).eq('key', 'pin'); },
+      function(){ return sb.from('settings').update({ value: $('t-intro-title').value.trim() }).eq('key', 'intro_title'); },
+      function(){ return sb.from('settings').update({ value: $('t-intro').value.replace(/\s+$/, '') }).eq('key', 'intro'); },
       function(){ return sb.from('settings').update({ value: $('t-hint').value.trim() }).eq('key', 'pin_hint'); }
     ], 'Seitentexte und Datum gespeichert.');
     if (ok) $('textsBox').open = false;
