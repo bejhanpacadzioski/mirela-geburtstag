@@ -366,3 +366,18 @@ canvas.confetti.on{display:block}
 .pick-text p{font-size:14px}
 .pick-front .pick-actions{margin-top:4px}
 .picks:not(.picks-mini){grid-template-columns:1fr}
+/* Countdown im Titel */
+.page-title{cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+.page-title:focus-visible{outline:2px solid var(--gold);outline-offset:4px;border-radius:6px}
+.page-title.is-countdown{font-variant-numeric:tabular-nums;display:flex;flex-wrap:wrap;align-items:baseline;gap:0 .3em}
+.page-title .cd-days{color:var(--ink)}
+.page-title .cd-clock{color:var(--gold)}
+.title-cd-label{margin:4px 0 0;font-size:13px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;color:var(--muted)}
+/* Kätzchen */
+.kitten-layer{position:fixed;inset:0;pointer-events:none;z-index:40;overflow:hidden}
+.kitten{position:absolute;bottom:-140px;animation:kitten-up var(--dur) var(--delay) cubic-bezier(.3,.6,.4,1) both}
+.kitten svg{width:100%;height:auto;display:block;filter:drop-shadow(0 4px 6px rgba(0,0,0,.15));animation:kitten-wiggle .5s ease-in-out infinite alternate}
+.miau{position:absolute;top:-26px;left:60%;padding:3px 9px;border-radius:12px;background:var(--card);color:var(--ink);font-size:13px;font-weight:600;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+@keyframes kitten-up{0%{transform:translate(0,0) rotate(0);opacity:0}10%{opacity:1}50%{transform:translate(var(--sway),-55vh) rotate(var(--spin))}85%{opacity:1}100%{transform:translate(calc(var(--sway) * -1),-115vh) rotate(calc(var(--spin) * -1));opacity:0}}
+@keyframes kitten-wiggle{from{transform:rotate(-6deg)}to{transform:rotate(6deg)}}
+@media (prefers-reduced-motion:reduce){.kitten svg{animation:none}}

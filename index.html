@@ -7,7 +7,7 @@
 <title>Alles Gute, Mirela</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=33">
+<link rel="stylesheet" href="style.css?v=34">
 </head>
 <body>
 <div class="lock-screen" id="lockScreen" hidden>
@@ -28,7 +28,8 @@
 <main class="wrap" id="mainWrap" hidden>
   <header>
     <p class="eyebrow" id="eyebrow">Freitag, 27. November 2026 · Luzern</p>
-    <h1 id="pageTitle">Alles Gute, Mirela</h1>
+    <h1 id="pageTitle" class="page-title" role="button" tabindex="0" aria-label="Überraschung">Alles Gute, Mirela</h1>
+    <p class="title-cd-label" id="titleCdLabel" hidden>bis zu deinem Geburtstag</p>
     <p class="lede" id="pageSubtitle">Heute gehört dir. Was wir vorhaben, erfährst du erst, wenn es so weit ist.</p>
     <section class="intro" id="intro" hidden></section>
     <div class="infobar"><span class="badge" id="variantBadge" hidden></span></div>
@@ -51,7 +52,7 @@
 <canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=33"></script>
+<script src="config.js?v=34"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -612,11 +613,84 @@
     })(start);
   }
 
+  /* ---------- Countdown im Titel ---------- */
+  var titleText = 'Happy Birthday!', birthdayAt = null, titleTimer = null, titleMode = '';
+  function updateTitle(){
+    var t = $('pageTitle'), lbl = $('titleCdLabel');
+    var left = birthdayAt ? birthdayAt - nowServer() : 0;
+    if (birthdayAt && left > 0) {
+      var s = Math.floor(left / 1000), d = Math.floor(s / 86400), hh = Math.floor(s % 86400 / 3600), mm = Math.floor(s % 3600 / 60), ss = s % 60;
+      function p2(n){ return String(n).padStart(2, '0'); }
+      t.innerHTML = (d > 0 ? '<span class="cd-days">' + d + (d === 1 ? ' Tag' : ' Tage') + '</span> ' : '') +
+        '<span class="cd-clock">' + p2(hh) + ':' + p2(mm) + ':' + p2(ss) + '</span>';
+      t.classList.add('is-countdown');
+      lbl.hidden = false;
+      titleMode = 'cd';
+      if (!titleTimer) titleTimer = setInterval(updateTitle, 1000);
+    } else {
+      if (titleMode !== 'title' || t.textContent !== titleText) { t.textContent = titleText; }
+      t.classList.remove('is-countdown');
+      lbl.hidden = true;
+      if (titleMode === 'cd') kittens(18);
+      titleMode = 'title';
+      clearInterval(titleTimer); titleTimer = null;
+    }
+  }
+
+  /* ---------- Kätzchen ---------- */
+  var KIT_COLORS = [['#F2A541','#E08A2E'], ['#B9B2A8','#8F877C'], ['#F3E3C8','#D9C29C'], ['#5B5552','#3F3A38'], ['#FFFFFF','#DDD6CC']];
+  function kittenSVG(c){
+    var fur = c[0], dark = c[1];
+    return '<svg viewBox="0 0 120 110" aria-hidden="true">' +
+      '<path d="M18 46 26 6l30 24ZM102 46 94 6 64 30Z" fill="'+fur+'" stroke="'+dark+'" stroke-width="3" stroke-linejoin="round"/>' +
+      '<path d="M26 16l4 20 14-10ZM94 16l-4 20-14-10Z" fill="#F4B6C2"/>' +
+      '<ellipse cx="60" cy="62" rx="46" ry="40" fill="'+fur+'" stroke="'+dark+'" stroke-width="3"/>' +
+      '<path d="M50 30q10 8 20 0" fill="none" stroke="'+dark+'" stroke-width="3" stroke-linecap="round" opacity=".5"/>' +
+      '<ellipse cx="42" cy="58" rx="7" ry="9" fill="#2A2420"/><ellipse cx="78" cy="58" rx="7" ry="9" fill="#2A2420"/>' +
+      '<circle cx="44.5" cy="54.5" r="2.6" fill="#fff"/><circle cx="80.5" cy="54.5" r="2.6" fill="#fff"/>' +
+      '<path d="M55 72h10l-5 6Z" fill="#E7849A"/>' +
+      '<path d="M60 78q-4 7-10 4M60 78q4 7 10 4" fill="none" stroke="#2A2420" stroke-width="2.4" stroke-linecap="round"/>' +
+      '<path d="M30 70l-20-4M30 76l-20 2M90 70l20-4M90 76l20 2" stroke="'+dark+'" stroke-width="2" stroke-linecap="round"/>' +
+      '<ellipse cx="34" cy="76" rx="7" ry="4" fill="#F4B6C2" opacity=".6"/><ellipse cx="86" cy="76" rx="7" ry="4" fill="#F4B6C2" opacity=".6"/>' +
+      '<ellipse cx="40" cy="100" rx="11" ry="8" fill="'+fur+'" stroke="'+dark+'" stroke-width="3"/><ellipse cx="80" cy="100" rx="11" ry="8" fill="'+fur+'" stroke="'+dark+'" stroke-width="3"/>' +
+    '</svg>';
+  }
+  var kittenBusy = false;
+  function kittens(n){
+    if (kittenBusy) return;
+    kittenBusy = true;
+    var layer = document.createElement('div');
+    layer.className = 'kitten-layer';
+    layer.setAttribute('aria-hidden', 'true');
+    var count = reduceMotion ? 4 : (n || 14), longest = 0;
+    for (var i = 0; i < count; i++) {
+      var k = document.createElement('div');
+      k.className = 'kitten';
+      var size = 54 + Math.random() * 58, dur = 2.8 + Math.random() * 2.2, delay = Math.random() * 1.2;
+      longest = Math.max(longest, dur + delay);
+      k.style.left = (Math.random() * 92) + '%';
+      k.style.width = size + 'px';
+      k.style.setProperty('--dur', dur + 's');
+      k.style.setProperty('--delay', delay + 's');
+      k.style.setProperty('--sway', (Math.random() * 60 - 30) + 'px');
+      k.style.setProperty('--spin', (Math.random() * 40 - 20) + 'deg');
+      k.innerHTML = kittenSVG(KIT_COLORS[i % KIT_COLORS.length]) + (i === 0 ? '<span class="miau">Miau!</span>' : '');
+      layer.appendChild(k);
+    }
+    document.body.appendChild(layer);
+    try { if (navigator.vibrate) navigator.vibrate([30, 60, 30]); } catch (e) {}
+    setTimeout(function(){ layer.remove(); kittenBusy = false; }, (longest + .3) * 1000);
+  }
+  $('pageTitle').addEventListener('click', function(){ kittens(); });
+  $('pageTitle').addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); kittens(); } });
+
   var hideLocked = false;
   function renderPage(p){
     if (!p) return;
     if (!!p.hide_locked !== hideLocked) { hideLocked = !!p.hide_locked; lastKey = ''; }
-    if (p.title) { $('pageTitle').textContent = p.title; document.title = p.title; }
+    if (p.title) { titleText = p.title; document.title = p.title; }
+    if (p.weather_date) birthdayAt = new Date(p.weather_date + 'T00:00:00+01:00');
+    updateTitle();
     var intro = $('intro'), lines = (p.intro || '').split(/\n+/).map(function(l){ return l.trim(); }).filter(Boolean);
     if (lines.length) {
       intro.innerHTML = (p.intro_title ? '<h2>'+esc(p.intro_title)+'</h2>' : '') +
