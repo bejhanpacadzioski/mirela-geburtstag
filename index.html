@@ -7,7 +7,7 @@
 <title>Alles Gute, Mirela</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=35">
+<link rel="stylesheet" href="style.css?v=36">
 </head>
 <body>
 <div class="lock-screen" id="lockScreen" hidden>
@@ -18,10 +18,15 @@
     <div class="lock-steps" id="lockSteps" aria-hidden="true"></div>
     <p class="lock-step-label" id="lockStepLabel"></p>
     <p class="lock-task" id="lockTask"></p>
+    <div class="lock-photo" id="photoBox" hidden>
+      <img id="photoPreview" alt="" hidden>
+      <label class="photo-pick" id="photoPick" for="photoInput">Foto auswählen</label>
+      <input id="photoInput" type="file" accept="image/*" hidden>
+    </div>
     <label class="sr" for="pinInput">Deine Antwort</label>
     <input id="pinInput" class="pin-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="10" autocomplete="off" placeholder="Zahl" aria-describedby="pinMsg">
     <p class="pin-msg" id="pinMsg" role="status"></p>
-    <div class="lock-actions">
+    <div class="lock-actions" id="lockActions">
       <button type="submit" id="pinGo">Prüfen</button>
       <button type="button" class="ghost" id="hintBtn" hidden>Tipp anzeigen</button>
     </div>
@@ -55,7 +60,7 @@
 <canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=35"></script>
+<script src="config.js?v=36"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -829,15 +834,71 @@
   function notifyText(t){ var el = $('toast'); el.textContent = t; el.hidden = false; requestAnimationFrame(function(){ el.classList.add('show'); });
     setTimeout(function(){ el.classList.remove('show'); setTimeout(function(){ el.hidden = true; }, 400); }, 4000); }
   var STEPS_KEY = 'mirela-steps', solved = [], stepInfo = null, trying = false;
+  var PHOTO_KEY = 'mirela-photo', photoTask = null, photoDone = false, nextInfo = null;
+  try { photoDone = localStorage.getItem(PHOTO_KEY) === '1'; } catch (e) {}
+  function photoOffset(){ return photoTask ? 1 : 0; }
+  function setDots(step, total){
+    var dots = '';
+    for (var i = 1; i <= total; i++) dots += '<span class="'+(i < step ? 'done' : (i === step ? 'now' : ''))+'"></span>';
+    $('lockSteps').innerHTML = total > 1 ? dots : '';
+    $('lockStepLabel').textContent = total > 1 ? 'Aufgabe ' + step + ' von ' + total : 'Deine Aufgabe';
+  }
+  function freshTask(){ var t = $('lockTask'); t.classList.remove('fresh'); void t.offsetWidth; t.classList.add('fresh'); }
+  function renderPhoto(info){
+    stepInfo = null; nextInfo = info;
+    setDots(1, (info.total || 0) + 1);
+    $('lockTask').textContent = photoTask;
+    $('photoBox').hidden = false;
+    $('pinInput').hidden = true; $('lockActions').hidden = true; $('pinHint').hidden = true;
+    $('photoPick').textContent = 'Foto auswählen';
+  }
+  function shrink(file){
+    return new Promise(function(resolve){
+      var url = URL.createObjectURL(file), img = new Image();
+      img.onload = function(){
+        var max = 1600, w = img.naturalWidth, h = img.naturalHeight, f = Math.min(1, max / Math.max(w, h));
+        var c = document.createElement('canvas'); c.width = Math.round(w * f); c.height = Math.round(h * f);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        c.toBlob(function(b){ resolve(b ? { blob: b, type: 'image/jpeg', ext: 'jpg', url: c.toDataURL('image/jpeg', .6) } : { blob: file, type: file.type, ext: 'img' }); }, 'image/jpeg', .85);
+      };
+      img.onerror = function(){ URL.revokeObjectURL(url); resolve({ blob: file, type: file.type || 'image/jpeg', ext: (file.name.split('.').pop() || 'jpg').toLowerCase() }); };
+      img.src = url;
+    });
+  }
+  $('photoInput').addEventListener('change', async function(){
+    var file = this.files && this.files[0]; this.value = '';
+    if (!file || trying) return;
+    if (file.type && !/^image\//.test(file.type)) { $('pinMsg').textContent = 'Das ist leider kein Foto.'; return; }
+    trying = true; $('pinMsg').textContent = ''; $('photoPick').textContent = 'Wird hochgeladen …';
+    var img = await shrink(file);
+    if (img.url) { $('photoPreview').src = img.url; $('photoPreview').hidden = false; }
+    var path = new Date().toISOString().replace(/[:.]/g, '-') + '-' + Math.random().toString(36).slice(2, 7) + '.' + img.ext;
+    var res = await sb.storage.from('lock-photos').upload(path, img.blob, { contentType: img.type, upsert: false });
+    trying = false;
+    if (res.error) {
+      $('photoPick').textContent = 'Nochmals versuchen';
+      $('pinMsg').textContent = /size|large|gross/i.test(res.error.message || '') ? 'Das Foto ist zu gross. Nimm ein anderes.' : 'Das Hochladen hat nicht geklappt. Versuch es nochmals.';
+      return;
+    }
+    photoDone = true; try { localStorage.setItem(PHOTO_KEY, '1'); } catch (e) {}
+    try { if (navigator.vibrate) navigator.vibrate(30); } catch (e) {}
+    $('photoPick').textContent = 'Danke!';
+    setTimeout(function(){
+      $('photoBox').hidden = true; $('photoPreview').hidden = true;
+      $('pinInput').hidden = false; $('lockActions').hidden = false;
+      if (!nextInfo || nextInfo.done) { if (nextInfo && nextInfo.done) unlocked(nextInfo.code); else showLock(); return; }
+      renderStep(nextInfo); freshTask();
+      setTimeout(function(){ try { $('pinInput').focus(); } catch (e) {} }, 50);
+    }, 900);
+  });
   try { solved = JSON.parse(localStorage.getItem(STEPS_KEY) || '[]') || []; } catch (e) { solved = []; }
   function saveSolved(){ try { localStorage.setItem(STEPS_KEY, JSON.stringify(solved)); } catch (e) {} }
 
   function renderStep(info){
     stepInfo = info;
-    var dots = '';
-    for (var i = 1; i <= info.total; i++) dots += '<span class="'+(i < info.step ? 'done' : (i === info.step ? 'now' : ''))+'"></span>';
-    $('lockSteps').innerHTML = info.total > 1 ? dots : '';
-    $('lockStepLabel').textContent = info.total > 1 ? 'Aufgabe ' + info.step + ' von ' + info.total : 'Deine Aufgabe';
+    $('photoBox').hidden = true; $('pinInput').hidden = false; $('lockActions').hidden = false;
+    setDots(info.step + photoOffset(), info.total + photoOffset());
     $('lockTask').textContent = info.task || '';
     $('hintBtn').hidden = !info.tip;
     $('pinHint').hidden = true;
@@ -846,10 +907,13 @@
   async function showLock(){
     $('mainWrap').hidden = true;
     $('lockScreen').hidden = false;
-    var res = await sb.rpc('lock_step', { p_codes: solved });
+    var both = await Promise.all([sb.rpc('lock_photo'), sb.rpc('lock_step', { p_codes: solved })]);
+    photoTask = (both[0] && !both[0].error && both[0].data) || null;
+    var res = both[1];
     if (res.error) { $('pinMsg').textContent = /Zu viele/.test(res.error.message || '') ? res.error.message : 'Gerade keine Verbindung. Versuch es gleich nochmals.'; return; }
     var d = res.data || {};
     if (d.wrong) { solved = solved.slice(0, d.step - 1); saveSolved(); return showLock(); }
+    if (photoTask && !photoDone) { renderPhoto(d); return; }
     if (d.done) { return unlocked(d.code); }
     renderStep(d);
     setTimeout(function(){ try { $('pinInput').focus(); } catch (e) {} }, 50);
@@ -893,7 +957,7 @@
     try { if (navigator.vibrate) navigator.vibrate(30); } catch (err) {}
     renderStep(d);
     $('pinMsg').textContent = '';
-    var t = $('lockTask'); t.classList.remove('fresh'); void t.offsetWidth; t.classList.add('fresh');
+    freshTask();
     setTimeout(function(){ try { $('pinInput').focus(); } catch (err) {} }, 50);
   });
   $('hintBtn').addEventListener('click', function(){

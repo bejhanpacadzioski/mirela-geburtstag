@@ -392,3 +392,14 @@ canvas.confetti.on{display:block}
 .lock-task.fresh{animation:reveal .6s ease both}
 .pin-input{letter-spacing:.2em;text-indent:.2em;font-size:26px}
 .pin-input::placeholder{letter-spacing:0;text-indent:0;font-size:18px;color:var(--muted)}
+/* Foto-Aufgabe */
+.lock-photo{display:flex;flex-direction:column;align-items:center;gap:12px;margin-top:4px}
+.lock-photo[hidden]{display:none}
+.photo-pick{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 22px;border-radius:10px;background:var(--lake);color:#fff;font-weight:600;font-size:16px;cursor:pointer}
+.photo-pick:focus-within,.photo-pick:hover{filter:brightness(1.08)}
+#photoPreview{width:160px;height:160px;object-fit:cover;border-radius:12px;border:1px solid var(--line);animation:reveal .5s ease both}
+.pin-input[hidden],.lock-actions[hidden]{display:none}
+.lock-gallery{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
+.lock-gallery a{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);text-decoration:none}
+.lock-gallery img{width:96px;height:96px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+.lbl{font-size:14px;font-weight:600}

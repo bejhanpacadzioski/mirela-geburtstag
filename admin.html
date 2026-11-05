@@ -7,7 +7,7 @@
 <title>Steuerung · Mirelas Tag</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=35">
+<link rel="stylesheet" href="style.css?v=36">
 </head>
 <body>
 <main class="wrap">
@@ -91,6 +91,7 @@
         <div class="field"><label for="t-intro">Erklärung <span class="opt">eine Zeile pro Punkt, leer lassen zum Ausblenden</span></label><textarea id="t-intro" rows="5"></textarea></div>
         <div class="field"><label for="t-wdate">Datum des Tages <span class="opt">Kopfzeile und Wetter</span></label><input id="t-wdate" type="date" required></div>
         <p class="opt" style="margin:14px 0 4px">Rätsel für den Zugang. Mirela löst die Aufgaben nacheinander, nach der letzten ist sie drin. Lässt du eine Lösung leer, fällt diese Aufgabe weg. Änderst du eine Lösung, muss sie das Rätsel nochmals lösen.</p>
+        <div class="field"><label for="lk-photo">Foto-Aufgabe <span class="opt">kommt zuerst. Jedes Foto lässt sie weiter. Leer lassen zum Weglassen.</span></label><input id="lk-photo" maxlength="200"></div>
         <div class="field"><label for="lk-task-1">Aufgabe 1</label><textarea id="lk-task-1" rows="2" maxlength="300"></textarea></div>
         <div class="field"><label for="lk-tip-1">Tipp zu Aufgabe 1 <span class="opt">optional, sie kann ihn einblenden</span></label><input id="lk-tip-1" maxlength="200"></div>
         <div class="field"><label for="lk-code-1">Lösung 1 <span class="opt">nur Ziffern</span></label><input id="lk-code-1" inputmode="numeric" pattern="[0-9]*" maxlength="10"></div>
@@ -100,6 +101,7 @@
         <div class="field"><label for="lk-task-3">Aufgabe 3</label><textarea id="lk-task-3" rows="2" maxlength="300"></textarea></div>
         <div class="field"><label for="lk-tip-3">Tipp zu Aufgabe 3 <span class="opt">optional, sie kann ihn einblenden</span></label><input id="lk-tip-3" maxlength="200"></div>
         <div class="field"><label for="lk-code-3">Lösung 3 <span class="opt">nur Ziffern</span></label><input id="lk-code-3" inputmode="numeric" pattern="[0-9]*" maxlength="10"></div>
+        <div class="field"><span class="lbl">Fotos von Mirela</span><div class="lock-gallery" id="lockPhotos"><span class="opt">Noch keine Fotos.</span></div></div>
         <div class="actions"><button type="submit" id="textSave">Speichern</button></div>
       </form>
     </details>
@@ -151,7 +153,7 @@
   </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=35"></script>
+<script src="config.js?v=36"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -495,6 +497,7 @@
         if (s.key === 'title' && !textDirty) $('t-title').value = s.value;
         if (s.key === 'subtitle' && !textDirty) $('t-subtitle').value = s.value;
         if (s.key === 'weather_date' && !textDirty) $('t-wdate').value = s.value;
+        if (s.key === 'lock_photo_task' && !textDirty) $('lk-photo').value = s.value || '';
         var lm = /^lock_(task|tip|code)_([123])$/.exec(s.key);
         if (lm && !textDirty) $('lk-' + lm[1] + '-' + lm[2]).value = s.value || '';
         if (s.key === 'intro_title' && !textDirty) $('t-intro-title').value = s.value;
@@ -782,6 +785,18 @@
   $('t-title').addEventListener('input', function(){ textDirty = true; });
   $('t-subtitle').addEventListener('input', function(){ textDirty = true; });
   $('t-wdate').addEventListener('input', function(){ textDirty = true; });
+  $('lk-photo').addEventListener('input', function(){ textDirty = true; });
+  async function loadLockPhotos(){
+    var r = await sb.storage.from('lock-photos').list('', { limit: 50, sortBy: { column: 'created_at', order: 'desc' } });
+    var files = (r.data || []).filter(function(f){ return f.id; });
+    if (!files.length) { $('lockPhotos').innerHTML = '<span class="opt">Noch keine Fotos.</span>'; return; }
+    var u = await sb.storage.from('lock-photos').createSignedUrls(files.map(function(f){ return f.name; }), 3600);
+    $('lockPhotos').innerHTML = (u.data || []).map(function(x, i){
+      var d = new Date(files[i].created_at);
+      return x.signedUrl ? '<a href="'+esc(x.signedUrl)+'" target="_blank" rel="noopener"><img src="'+esc(x.signedUrl)+'" alt=""><span>'+esc(d.toLocaleString('de-CH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))+'</span></a>' : '';
+    }).join('');
+  }
+  $('textsBox').addEventListener('toggle', function(){ if ($('textsBox').open) loadLockPhotos(); });
   ['task','tip','code'].forEach(function(k){ [1,2,3].forEach(function(n){ $('lk-'+k+'-'+n).addEventListener('input', function(){ textDirty = true; }); }); });
   $('t-intro-title').addEventListener('input', function(){ textDirty = true; });
   $('t-intro').addEventListener('input', function(){ textDirty = true; });
@@ -806,6 +821,7 @@
       function(){ return sb.from('settings').update({ value: wd }).eq('key', 'weather_date'); },
       function(){ return sb.from('settings').update({ value: $('t-intro-title').value.trim() }).eq('key', 'intro_title'); },
       function(){ return sb.from('settings').update({ value: $('t-intro').value.replace(/\s+$/, '') }).eq('key', 'intro'); }
+      ,function(){ return sb.from('settings').update({ value: $('lk-photo').value.trim() }).eq('key', 'lock_photo_task'); }
     ].concat(lock.map(function(kv){ return function(){ return sb.from('settings').update({ value: kv[1] }).eq('key', kv[0]); }; })), 'Seitentexte, Datum und Rätsel gespeichert.');
     if (ok) $('textsBox').open = false;
   });
