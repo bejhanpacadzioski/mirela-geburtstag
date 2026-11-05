@@ -7,7 +7,7 @@
 <title>Steuerung · Mirelas Tag</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=23">
+<link rel="stylesheet" href="style.css?v=24">
 </head>
 <body>
 <main class="wrap">
@@ -116,7 +116,7 @@
   </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=23"></script>
+<script src="config.js?v=24"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -155,7 +155,7 @@
       fieldHTML('f-note', 'Beschreibung', 'optional', '<textarea id="f-note" rows="3">'+esc(it.note)+'</textarea>')+
       fieldHTML('f-location', 'Ort', 'optional, erscheint als Kartenlink', '<input id="f-location" placeholder="z. B. Furrengasse 6, 6004 Luzern" value="'+esc(it.location)+'">')+
       fieldHTML('f-link', 'Link für mich', 'optional, z. B. Reservierung. Mirela sieht ihn nie.', '<input id="f-link" type="url" inputmode="url" placeholder="https://…" value="'+esc(it.admin_link)+'">')+
-      '<label class="check"><input type="checkbox" id="f-hide"'+(it.hide_when_locked?' checked':'')+'> Solange gesperrt, bei Mirela ganz ausblenden</label>'+
+
       '<div class="actions"><button type="submit"'+(busy?' disabled':'')+'>Speichern</button>'+
       '<button type="button" class="ghost" data-act="cancel">Abbrechen</button>'+del+'</div>'+
     '</form>';
@@ -328,7 +328,13 @@
           filesAdminHTML(it))+
         (open ? editorHTML(it) :
           '<div class="entry-actions">'+
-            '<button type="button" data-act="toggle"'+(on?' class="ghost"':'')+dis+'>'+(on?'Verbergen':'Freischalten')+'</button>'+
+            '<div class="vis" role="group" aria-label="Sichtbarkeit für Mirela">'+
+              ['sichtbar','gesperrt','unsichtbar'].map(function(v){
+                var cur = on ? 'sichtbar' : (it.hide_when_locked ? 'unsichtbar' : 'gesperrt');
+                var lbl = { sichtbar: 'Sichtbar', gesperrt: 'Gesperrt', unsichtbar: 'Unsichtbar' }[v];
+                return '<button type="button" data-act="vis" data-vis="'+v+'" aria-pressed="'+(cur===v)+'" class="vis-'+v+(cur===v?' on':'')+'"'+dis+'>'+lbl+'</button>';
+              }).join('')+
+            '</div>'+
             '<button type="button" class="ghost" data-act="edit"'+dis+'>Bearbeiten</button>'+
             '<span class="spacer"></span>'+
             '<button type="button" class="icon" data-act="up" aria-label="Nach oben"'+(i===0||busy?' disabled':'')+'>↑</button>'+
@@ -421,8 +427,7 @@
       place: val('f-place') || null,
       location: val('f-location') || null,
       note: val('f-note') || null,
-      admin_link: val('f-link') || null,
-      hide_when_locked: !!($('f-hide') && $('f-hide').checked)
+      admin_link: val('f-link') || null
     };
     if (data.admin_link && !/^https?:\/\//i.test(data.admin_link)) data.admin_link = 'https://' + data.admin_link;
     if (!data.time_label || !data.title) { say($('msg'), 'Uhrzeit und Titel braucht jeder Eintrag.', true); return; }
@@ -454,6 +459,19 @@
     }
     if (act === 'up') move(id, -1);
     else if (act === 'down') move(id, 1);
+    else if (act === 'vis') {
+      var itv = byId(id); if (!itv) return;
+      var want = b.getAttribute('data-vis');
+      var cur = itv.revealed ? 'sichtbar' : (itv.hide_when_locked ? 'unsichtbar' : 'gesperrt');
+      if (want === cur) return;
+      var upd = want === 'sichtbar' ? { revealed: true }
+              : want === 'gesperrt' ? { revealed: false, hide_when_locked: false }
+              : { revealed: false, hide_when_locked: true };
+      var txt = want === 'sichtbar'
+        ? (isActive(itv) ? 'Freigeschaltet. Mirela sieht es gleich.' : 'Freigeschaltet. Sichtbar wird es erst im Programm ' + VLABEL[itv.program] + '.')
+        : want === 'gesperrt' ? 'Gesperrt. Mirela sieht nur die Uhrzeit mit Schloss.' : 'Unsichtbar. Mirela sieht diesen Punkt gar nicht.';
+      run([function(){ return sb.from('plan').update(upd).eq('id', id); }], txt);
+    }
     else if (act === 'toggle') {
       var it = byId(id); if (!it) return;
       run([function(){ return sb.from('plan').update({ revealed: !it.revealed }).eq('id', id); }],

@@ -285,3 +285,10 @@ canvas.confetti.on{display:block}
 .is-waiting .countdown{margin:2px 0 4px}
 .check{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:500;cursor:pointer}
 .check input{width:20px;height:20px;accent-color:var(--lake)}
+/* Admin: Sichtbarkeit pro Eintrag */
+.vis{display:inline-grid;grid-template-columns:repeat(3,auto);border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.vis button{border:0;border-radius:0;padding:8px 11px;font-size:13px;background:transparent;color:var(--muted)}
+.vis button + button{border-left:1px solid var(--line)}
+.vis button.on.vis-sichtbar{background:var(--gold);color:#fff}
+.vis button.on.vis-gesperrt{background:var(--lake);color:var(--bg)}
+.vis button.on.vis-unsichtbar{background:var(--ink);color:var(--bg)}
