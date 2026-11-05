@@ -7,7 +7,7 @@
 <title>Steuerung · Mirelas Tag</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=34">
+<link rel="stylesheet" href="style.css?v=35">
 </head>
 <body>
 <main class="wrap">
@@ -83,15 +83,23 @@
     </div>
 
     <details class="texts" id="textsBox">
-      <summary>Seite: Titel, Erklärung, Datum und Code</summary>
+      <summary>Seite: Titel, Erklärung, Datum und Rätsel</summary>
       <form id="textForm" class="editor">
         <div class="field"><label for="t-title">Titel</label><input id="t-title" required maxlength="80"></div>
         <div class="field"><label for="t-subtitle">Untertitel <span class="opt">optional</span></label><textarea id="t-subtitle" rows="2" maxlength="240"></textarea></div>
         <div class="field"><label for="t-intro-title">Überschrift der Erklärung</label><input id="t-intro-title" maxlength="60"></div>
         <div class="field"><label for="t-intro">Erklärung <span class="opt">eine Zeile pro Punkt, leer lassen zum Ausblenden</span></label><textarea id="t-intro" rows="5"></textarea></div>
         <div class="field"><label for="t-wdate">Datum des Tages <span class="opt">Kopfzeile und Wetter</span></label><input id="t-wdate" type="date" required></div>
-        <div class="field"><label for="t-pin">Code für Mirela <span class="opt">4 Ziffern. Wenn du ihn änderst, muss sie ihn neu eingeben.</span></label><input id="t-pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" required></div>
-        <div class="field"><label for="t-hint">Tipp zum Code</label><input id="t-hint" maxlength="80"></div>
+        <p class="opt" style="margin:14px 0 4px">Rätsel für den Zugang. Mirela löst die Aufgaben nacheinander, nach der letzten ist sie drin. Lässt du eine Lösung leer, fällt diese Aufgabe weg. Änderst du eine Lösung, muss sie das Rätsel nochmals lösen.</p>
+        <div class="field"><label for="lk-task-1">Aufgabe 1</label><textarea id="lk-task-1" rows="2" maxlength="300"></textarea></div>
+        <div class="field"><label for="lk-tip-1">Tipp zu Aufgabe 1 <span class="opt">optional, sie kann ihn einblenden</span></label><input id="lk-tip-1" maxlength="200"></div>
+        <div class="field"><label for="lk-code-1">Lösung 1 <span class="opt">nur Ziffern</span></label><input id="lk-code-1" inputmode="numeric" pattern="[0-9]*" maxlength="10"></div>
+        <div class="field"><label for="lk-task-2">Aufgabe 2</label><textarea id="lk-task-2" rows="2" maxlength="300"></textarea></div>
+        <div class="field"><label for="lk-tip-2">Tipp zu Aufgabe 2 <span class="opt">optional, sie kann ihn einblenden</span></label><input id="lk-tip-2" maxlength="200"></div>
+        <div class="field"><label for="lk-code-2">Lösung 2 <span class="opt">nur Ziffern</span></label><input id="lk-code-2" inputmode="numeric" pattern="[0-9]*" maxlength="10"></div>
+        <div class="field"><label for="lk-task-3">Aufgabe 3</label><textarea id="lk-task-3" rows="2" maxlength="300"></textarea></div>
+        <div class="field"><label for="lk-tip-3">Tipp zu Aufgabe 3 <span class="opt">optional, sie kann ihn einblenden</span></label><input id="lk-tip-3" maxlength="200"></div>
+        <div class="field"><label for="lk-code-3">Lösung 3 <span class="opt">nur Ziffern</span></label><input id="lk-code-3" inputmode="numeric" pattern="[0-9]*" maxlength="10"></div>
         <div class="actions"><button type="submit" id="textSave">Speichern</button></div>
       </form>
     </details>
@@ -143,7 +151,7 @@
   </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=34"></script>
+<script src="config.js?v=35"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -487,10 +495,10 @@
         if (s.key === 'title' && !textDirty) $('t-title').value = s.value;
         if (s.key === 'subtitle' && !textDirty) $('t-subtitle').value = s.value;
         if (s.key === 'weather_date' && !textDirty) $('t-wdate').value = s.value;
-        if (s.key === 'pin' && !textDirty) $('t-pin').value = s.value;
+        var lm = /^lock_(task|tip|code)_([123])$/.exec(s.key);
+        if (lm && !textDirty) $('lk-' + lm[1] + '-' + lm[2]).value = s.value || '';
         if (s.key === 'intro_title' && !textDirty) $('t-intro-title').value = s.value;
         if (s.key === 'intro' && !textDirty) $('t-intro').value = s.value;
-        if (s.key === 'pin_hint' && !textDirty) $('t-hint').value = s.value;
       });
     }
     render();
@@ -774,27 +782,31 @@
   $('t-title').addEventListener('input', function(){ textDirty = true; });
   $('t-subtitle').addEventListener('input', function(){ textDirty = true; });
   $('t-wdate').addEventListener('input', function(){ textDirty = true; });
-  $('t-pin').addEventListener('input', function(){ textDirty = true; });
+  ['task','tip','code'].forEach(function(k){ [1,2,3].forEach(function(n){ $('lk-'+k+'-'+n).addEventListener('input', function(){ textDirty = true; }); }); });
   $('t-intro-title').addEventListener('input', function(){ textDirty = true; });
   $('t-intro').addEventListener('input', function(){ textDirty = true; });
-  $('t-hint').addEventListener('input', function(){ textDirty = true; });
   $('textForm').addEventListener('submit', async function(e){
     e.preventDefault();
     var t = $('t-title').value.trim(), st = $('t-subtitle').value.trim(), wd = $('t-wdate').value;
     if (!t) { say($('msg'), 'Der Titel darf nicht leer sein.', true); return; }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(wd)) { say($('msg'), 'Bitte ein gültiges Datum fürs Wetter wählen.', true); return; }
-    var pinv = $('t-pin').value.trim();
-    if (!/^\d{4}$/.test(pinv)) { say($('msg'), 'Der Code muss aus genau 4 Ziffern bestehen.', true); return; }
+    var lock = [], lockOk = true, anyCode = false;
+    [1,2,3].forEach(function(n){
+      var c = $('lk-code-'+n).value.trim();
+      if (c && !/^\d{1,10}$/.test(c)) lockOk = false;
+      if (c) anyCode = true;
+      lock.push(['lock_task_'+n, $('lk-task-'+n).value.trim()], ['lock_tip_'+n, $('lk-tip-'+n).value.trim()], ['lock_code_'+n, c]);
+    });
+    if (!lockOk) { say($('msg'), 'Die Lösungen dürfen nur aus Ziffern bestehen.', true); return; }
+    if (!anyCode) { say($('msg'), 'Mindestens eine Aufgabe braucht eine Lösung, sonst ist die Seite offen.', true); return; }
     textDirty = false;
     var ok = await run([
       function(){ return sb.from('settings').update({ value: t }).eq('key', 'title'); },
       function(){ return sb.from('settings').update({ value: st }).eq('key', 'subtitle'); },
       function(){ return sb.from('settings').update({ value: wd }).eq('key', 'weather_date'); },
-      function(){ return sb.from('settings').update({ value: pinv }).eq('key', 'pin'); },
       function(){ return sb.from('settings').update({ value: $('t-intro-title').value.trim() }).eq('key', 'intro_title'); },
-      function(){ return sb.from('settings').update({ value: $('t-intro').value.replace(/\s+$/, '') }).eq('key', 'intro'); },
-      function(){ return sb.from('settings').update({ value: $('t-hint').value.trim() }).eq('key', 'pin_hint'); }
-    ], 'Seitentexte und Datum gespeichert.');
+      function(){ return sb.from('settings').update({ value: $('t-intro').value.replace(/\s+$/, '') }).eq('key', 'intro'); }
+    ].concat(lock.map(function(kv){ return function(){ return sb.from('settings').update({ value: kv[1] }).eq('key', kv[0]); }; })), 'Seitentexte, Datum und Rätsel gespeichert.');
     if (ok) $('textsBox').open = false;
   });
 

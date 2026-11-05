@@ -381,3 +381,14 @@ canvas.confetti.on{display:block}
 @keyframes kitten-up{0%{transform:translate(0,0) rotate(0);opacity:0}10%{opacity:1}50%{transform:translate(var(--sway),-55vh) rotate(var(--spin))}85%{opacity:1}100%{transform:translate(calc(var(--sway) * -1),-115vh) rotate(calc(var(--spin) * -1));opacity:0}}
 @keyframes kitten-wiggle{from{transform:rotate(-6deg)}to{transform:rotate(6deg)}}
 @media (prefers-reduced-motion:reduce){.kitten svg{animation:none}}
+/* Rätsel-Stufen */
+.lock-steps{display:flex;gap:8px;margin-top:4px}
+.lock-steps:empty{display:none}
+.lock-steps span{width:28px;height:6px;border-radius:3px;background:var(--line)}
+.lock-steps span.done{background:var(--gold)}
+.lock-steps span.now{background:var(--lake)}
+.lock-step-label{margin:6px 0 0;font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:600;color:var(--lake)}
+.lock-task{margin:0;font-family:var(--display);font-size:24px;line-height:1.25;color:var(--ink);white-space:pre-line;text-wrap:balance}
+.lock-task.fresh{animation:reveal .6s ease both}
+.pin-input{letter-spacing:.2em;text-indent:.2em;font-size:26px}
+.pin-input::placeholder{letter-spacing:0;text-indent:0;font-size:18px;color:var(--muted)}
