@@ -306,3 +306,21 @@ canvas.confetti.on{display:block}
 .step-label{margin:0;font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:600;color:var(--lake)}
 .step-title{margin:0;font-family:var(--display);font-weight:400;font-size:clamp(22px,6vw,26px);line-height:1.2;text-wrap:balance}
 .step-progress{margin:0;font-size:13px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
+/* Code-Eingabe */
+.lock-screen{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding-block:32px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.lock-card{width:100%;max-width:380px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;padding:28px 22px;border-radius:16px;background:var(--card);border:1px solid var(--gold)}
+.lock-card h1{font-size:clamp(36px,10vw,48px)}
+.lock-card .lede{margin:0}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.pin-input{width:190px;max-width:100%;margin:6px 0 0;padding:12px 10px;text-align:center;font-size:30px;letter-spacing:.5em;text-indent:.5em;font-variant-numeric:tabular-nums;border:1px solid var(--gold);border-radius:12px;background:var(--bg);color:var(--ink)}
+.pin-input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.pin-input::placeholder{color:var(--line)}
+.pin-dots{display:flex;gap:14px;margin:8px 0 2px;cursor:text}
+.pin-dots span{width:16px;height:16px;border-radius:50%;border:2px solid var(--gold);transition:background .15s ease}
+.pin-dots span.on{background:var(--gold)}
+.pin-msg{margin:0;min-height:20px;font-size:14px;color:var(--danger)}
+.lock-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+.pin-hint{margin:4px 0 0;font-size:15px;color:var(--ink);background:var(--gold-soft);padding:8px 12px;border-radius:8px}
+.lock-card.shake{animation:shake .4s ease}
+@keyframes shake{20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+@media (prefers-reduced-motion:reduce){.lock-card.shake{animation:none}}

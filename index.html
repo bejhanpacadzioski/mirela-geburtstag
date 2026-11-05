@@ -7,10 +7,25 @@
 <title>Alles Gute, Mirela</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=26">
+<link rel="stylesheet" href="style.css?v=27">
 </head>
 <body>
-<main class="wrap">
+<div class="lock-screen" id="lockScreen" hidden>
+  <form class="lock-card" id="lockForm" autocomplete="off">
+    <p class="eyebrow">Nur für dich</p>
+    <h1>Hey Mirela</h1>
+    <p class="lede">Bevor es losgeht: Gib den Code ein.</p>
+    <label class="sr" for="pinInput">Code</label>
+    <input id="pinInput" class="pin-input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="····" aria-describedby="pinMsg">
+    <p class="pin-msg" id="pinMsg" role="status"></p>
+    <div class="lock-actions">
+      <button type="submit" id="pinGo">Öffnen</button>
+      <button type="button" class="ghost" id="hintBtn">Tipp anzeigen</button>
+    </div>
+    <p class="pin-hint" id="pinHint" hidden></p>
+  </form>
+</div>
+<main class="wrap" id="mainWrap" hidden>
   <header>
     <p class="eyebrow" id="eyebrow">Freitag, 27. November 2026 · Luzern</p>
     <h1 id="pageTitle">Alles Gute, Mirela</h1>
@@ -32,10 +47,18 @@
 <canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=26"></script>
+<script src="config.js?v=27"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+  var PIN_KEY = 'mirela-pin', PIN = null;
+  try { PIN = localStorage.getItem(PIN_KEY); } catch (e) {}
+
+  async function signUrls(bucket, paths){
+    var res = await sb.functions.invoke('sign', { body: { pin: PIN, bucket: bucket, paths: paths } });
+    if (res.error || !res.data || !res.data.urls) return [];
+    return res.data.urls;
+  }
   var BIRTHDAY = '2026-11-27', weatherLoadedFor = null;
   function shortDate(iso){ var a = iso.split('-'); return Number(a[2]) + '.' + Number(a[1]) + '.'; }
   var FILE_ICON = '<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.5h5l3.5 3.5v9.5h-8.5z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9 1.5V5h3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>';
@@ -176,10 +199,11 @@
     var win = null;
     try { win = window.open('', '_blank'); } catch (err) {}
     b.disabled = true;
-    var res = await sb.storage.from('attachments').createSignedUrl(b.getAttribute('data-path'), 600);
+    var urls = await signUrls('attachments', [b.getAttribute('data-path')]);
     b.disabled = false;
-    if (res.error || !res.data) { if (win) win.close(); alert('Die Datei kann gerade nicht geöffnet werden.'); return; }
-    if (win) win.location.href = res.data.signedUrl; else location.href = res.data.signedUrl;
+    var u = urls[0] && urls[0].signedUrl;
+    if (!u) { if (win) win.close(); notifyText('Die Datei kann gerade nicht geöffnet werden.'); return; }
+    if (win) win.location.href = u; else location.href = u;
   });
 
   var ENVELOPE = '<svg viewBox="0 0 48 36" aria-hidden="true"><rect x="1.5" y="1.5" width="45" height="33" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M2 3l22 17L46 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="24" cy="21" r="4.5" fill="var(--gold)"/></svg>';
@@ -219,8 +243,7 @@
     lastPhotoKey = pk;
     var urls = {};
     if (photos.length) {
-      var res = await sb.storage.from('photos').createSignedUrls(photos.map(function(p){ return p.path; }), 3600);
-      (res.data || []).forEach(function(r){ if (r.signedUrl) urls[r.path] = r.signedUrl; });
+      (await signUrls('photos', photos.map(function(p){ return p.path; }))).forEach(function(r){ if (r.signedUrl) urls[r.path] = r.signedUrl; });
     }
     box.className = 'album open' + (albumWasOpen === false ? ' fresh' : '');
     box.innerHTML = '<h2>'+esc(a.title || 'Unser Tag in Bildern')+'</h2>' +
@@ -461,7 +484,8 @@
       if (P.choosing || !P.selected) return;
       P.choosing = true;
       var b = $(id('hold')); if (b) { b.disabled = true; b.querySelector('.hold-label').textContent = 'Wird gespeichert …'; }
-      var res = await sb.rpc(cfg.rpc, { opt: P.selected });
+      var res = await sb.rpc(cfg.rpc, { opt: P.selected, p_pin: PIN });
+      if (!res.error && res.data && res.data.error === 'pin') { lockAgain(); return; }
       if (res.error) {
         P.choosing = false;
         if (b) { b.disabled = false; b.querySelector('.hold-label').textContent = 'Gedrückt halten zum Bestätigen'; }
@@ -483,9 +507,9 @@
     return P;
   }
 
-  var pollPM = createPoll({ name: 'pm', box: 'choice', rpc: 'make_choice', heading: 'Wie soll unser Nachmittag aussehen?', chosenLabel: 'Deine Wahl', step: 'Schritt 1 · Nachmittag', showSubtitle: false, countdown: false,
+  var pollPM = createPoll({ name: 'pm', box: 'choice', rpc: 'make_choice_pin', heading: 'Wie soll unser Nachmittag aussehen?', chosenLabel: 'Deine Wahl', step: 'Schritt 1 · Nachmittag', showSubtitle: false, countdown: false,
     onChosen: function(d){ renderBadge(d); } });
-  var pollEV = createPoll({ name: 'ev', box: 'choice2', rpc: 'make_evening_choice', heading: 'Und nach dem Essen?', chosenLabel: 'Deine Wahl', step: 'Schritt 2 · Abend', showSubtitle: true, countdown: false,
+  var pollEV = createPoll({ name: 'ev', box: 'choice2', rpc: 'make_evening_choice_pin', heading: 'Und nach dem Essen?', chosenLabel: 'Deine Wahl', step: 'Schritt 2 · Abend', showSubtitle: true, countdown: false,
     onChosen: function(){ renderWrap(); } });
   pollPM.status = 'off'; pollEV.status = 'off';
 
@@ -584,8 +608,15 @@
   }
 
   async function load(){
-    var r = await Promise.all([sb.rpc('public_slots_v5'), sb.rpc('public_page'), sb.rpc('public_attachments'), sb.rpc('public_extras'), sb.rpc('public_choice'), sb.rpc('public_evening')]);
-    var slots = r[0], page = r[1], files = r[2].error ? [] : (r[2].data || []), extras = r[3], ch = r[4], ev = r[5];
+    if (!PIN) { showLock(); return; }
+    var res = await sb.rpc('public_bundle', { p_pin: PIN });
+    if (!res.error && res.data && res.data.error === 'pin') { lockAgain(); return; }
+    var d = (!res.error && res.data) || {};
+    var err = res.error || null;
+    var slots = { data: d.slots, error: err }, page = { data: d.page, error: err }, files = d.attachments || [],
+        extras = { data: d.extras, error: err }, ch = { data: d.choice, error: err }, ev = { data: d.evening, error: err };
+    if (!err) { $('lockScreen').hidden = true; $('mainWrap').hidden = false; }
+    else if ($('mainWrap').hidden) { showLock(); $('pinMsg').textContent = 'Gerade keine Verbindung. Versuch es gleich nochmals.'; return; }
     if (!ch.error && ch.data) {
       var srv = Date.parse(ch.data.now); if (!isNaN(srv)) serverOffset = srv - Date.now();
       if (pollPM.update(ch.data)) lastKey = '';
@@ -689,6 +720,61 @@
     } catch (e) {
       box.hidden = true;
     }
+  }
+
+  /* ---------- Code-Eingabe ---------- */
+  function notifyText(t){ var el = $('toast'); el.textContent = t; el.hidden = false; requestAnimationFrame(function(){ el.classList.add('show'); });
+    setTimeout(function(){ el.classList.remove('show'); setTimeout(function(){ el.hidden = true; }, 400); }, 4000); }
+  function updateDots(){
+    var n = $('pinInput').value.length;
+    Array.prototype.forEach.call(document.querySelectorAll('.pin-dots span'), function(s, i){ s.classList.toggle('on', i < n); });
+  }
+  function showLock(){
+    $('mainWrap').hidden = true;
+    $('lockScreen').hidden = false;
+    setTimeout(function(){ try { $('pinInput').focus(); } catch (e) {} }, 50);
+  }
+  function lockAgain(){
+    PIN = null;
+    try { localStorage.removeItem(PIN_KEY); } catch (e) {}
+    showLock();
+    $('pinMsg').textContent = 'Bitte gib den Code nochmals ein.';
+  }
+  $('pinInput').addEventListener('input', function(){
+    var v = $('pinInput').value.replace(/\D/g, '').slice(0, 4);
+    if (v !== $('pinInput').value) $('pinInput').value = v;
+    $('pinMsg').textContent = '';
+    updateDots();
+    if (v.length === 4) tryPin(v);
+  });
+  $('lockForm').addEventListener('submit', function(e){ e.preventDefault(); var v = $('pinInput').value; if (v.length === 4) tryPin(v); else $('pinMsg').textContent = 'Der Code hat vier Ziffern.'; });
+  $('hintBtn').addEventListener('click', async function(){
+    var res = await sb.rpc('pin_hint');
+    $('pinHint').textContent = 'Tipp: ' + ((!res.error && res.data) || 'Frag Bejhan.');
+    $('pinHint').hidden = false;
+    $('hintBtn').hidden = true;
+  });
+  var trying = false;
+  async function tryPin(v){
+    if (trying) return;
+    trying = true; $('pinGo').disabled = true;
+    var res = await sb.rpc('public_bundle', { p_pin: v });
+    trying = false; $('pinGo').disabled = false;
+    if (res.error) {
+      $('pinMsg').textContent = /Zu viele/.test(res.error.message || '') ? res.error.message : 'Gerade keine Verbindung. Versuch es gleich nochmals.';
+      return;
+    }
+    if (res.data && res.data.error === 'pin') {
+      $('pinMsg').textContent = 'Das war nicht der richtige Code.';
+      var card = $('lockForm'); card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake');
+      try { if (navigator.vibrate) navigator.vibrate([40, 40, 40]); } catch (e) {}
+      $('pinInput').value = ''; updateDots();
+      return;
+    }
+    PIN = v;
+    try { localStorage.setItem(PIN_KEY, v); } catch (e) {}
+    $('lockScreen').hidden = true; $('mainWrap').hidden = false;
+    lastKey = ''; load();
   }
 
   load();
