@@ -426,3 +426,7 @@ canvas.confetti.on{display:block}
 .intro-close{position:absolute;top:6px;right:6px;width:30px;height:30px;min-height:0;padding:0;border:0;border-radius:50%;background:transparent;color:var(--muted);font-size:20px;line-height:1;box-shadow:none;cursor:pointer}
 .intro-close:hover{color:var(--ink);background:var(--line)}
 .intro-pop{margin-bottom:14px}
+/* Nachmittag und Abend nebeneinander */
+.infobar{flex-wrap:nowrap;gap:8px}
+.infobar .badge{flex:0 1 auto;min-width:0;font-size:12px;padding:5px 10px;gap:5px;line-height:1.25}
+.infobar .badge-icon{flex:none;width:16px;height:16px}
