@@ -7,7 +7,7 @@
 <title>Steuerung · Mirelas Tag</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=40">
+<link rel="stylesheet" href="style.css?v=41">
 </head>
 <body>
 <main class="wrap">
@@ -29,6 +29,7 @@
   <section class="panel" id="panel" hidden>
     <section class="extra" id="choiceBox">
       <div class="extra-head"><h2>Mirelas Wahl</h2><span class="chip" id="choiceChip">–</span></div>
+      <label class="check"><input type="checkbox" id="choiceHidden"> Bereich «Du gestaltest mit» (beide Schritte) bei Mirela ganz ausblenden</label>
       <p class="choice-status" id="choiceStatus"></p>
       <div class="field"><label for="c-open">Wahl öffnet am <span class="opt">leer lassen, um die Wahl auszuschalten</span></label>
         <input id="c-open" type="datetime-local"></div>
@@ -159,7 +160,7 @@
   </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=40"></script>
+<script src="config.js?v=41"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -493,6 +494,7 @@
           if (s.key === 'ev_text_closed') $('ev-closed').value = s.value;
         }
         if (s.key === 'hide_locked') hideLocked = s.value === 'true';
+        if (s.key === 'choice_hidden') $('choiceHidden').checked = s.value === 'true';
         if (!choiceTextDirty) {
           if (s.key === 'choice_heading') $('ct-heading').value = s.value;
           if (s.key === 'choice_main_heading') $('ct-main').value = s.value;
@@ -885,6 +887,11 @@
       steps.push(function(){ return sb.from('extras').update({ title: t || null, body: b }).eq('key', 'letter'); }); }
     steps.push(function(){ return sb.from('extras').update({ revealed: !l.revealed }).eq('key', 'letter'); });
     run(steps, l.revealed ? 'Brief wieder verschlossen.' : 'Brief freigeschaltet. Mirela kann ihn jetzt lesen.');
+  });
+  $('choiceHidden').addEventListener('change', function(){
+    var v = $('choiceHidden').checked ? 'true' : 'false';
+    run([function(){ return sb.from('settings').update({ value: v }).eq('key', 'choice_hidden'); }],
+        v === 'true' ? 'Der Bereich «Du gestaltest mit» ist bei Mirela ausgeblendet.' : 'Der Bereich «Du gestaltest mit» ist bei Mirela wieder sichtbar.');
   });
   $('hideLocked').addEventListener('change', function(){
     var v = $('hideLocked').checked ? 'true' : 'false';

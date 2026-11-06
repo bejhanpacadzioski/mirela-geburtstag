@@ -7,7 +7,7 @@
 <title>Alles Gute, Mirela</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=40">
+<link rel="stylesheet" href="style.css?v=41">
 </head>
 <body>
 <div class="lock-screen" id="lockScreen" hidden>
@@ -60,7 +60,7 @@
 <canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=40"></script>
+<script src="config.js?v=41"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -190,12 +190,12 @@
       }
       return '<li class="slot locked"><div class="time">'+timeHTML(s.time_label)+'</div><div class="card"><span class="lock">'+LOCK+'</span><div><h2>Verschlossen</h2></div></div></li>';
     });
-    if (choicePending && (list.length || hideLocked)) {
+    if (choicePending && !choiceHidden && (list.length || hideLocked)) {
       list.splice(hideLocked ? list.length : list.length - 1, 0,
         '<li class="slot decide"><div class="time">Nachmittag</div><div class="card"><span class="lock">'+ICON_DICE+'</span><div><h2>Du entscheidest</h2>'+
         '<p class="note">'+(choiceOpenNow ? 'Wähl oben bei Schritt 1.' : 'Das erfährst du bald.')+'</p></div></div></li>');
     }
-    if (eveningPending) {
+    if (eveningPending && !choiceHidden) {
       list.push('<li class="slot decide"><div class="time">Danach</div><div class="card"><span class="lock">'+ICON_DICE+'</span><div><h2>Du entscheidest</h2>'+
         '<p class="note">'+(eveningOpenNow ? 'Wähl oben bei Schritt 2.' : 'Das erfährst du bald.')+'</p></div></div></li>');
     }
@@ -541,7 +541,7 @@
   function renderWrap(){
     var c = pollPM.data, wrap = $('choiceWrap'), head = $('choiceHead');
     var sPM = c ? choiceStatus(c) : 'off', sEV = pollEV.data ? choiceStatus(pollEV.data) : 'off';
-    if (sPM === 'off' && sEV === 'off') { wrap.hidden = true; clearInterval(wrapTimer); wrapKey = ''; return; }
+    if (choiceHidden || (sPM === 'off' && sEV === 'off')) { wrap.hidden = true; clearInterval(wrapTimer); wrapKey = ''; return; }
     wrap.hidden = false;
     var win = c || pollEV.data;
     var phase = !win.open_at ? 'none' : (nowServer() < new Date(win.open_at) ? 'wait'
@@ -686,10 +686,11 @@
   $('pageTitle').addEventListener('click', function(){ kittens(); });
   $('pageTitle').addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); kittens(); } });
 
-  var hideLocked = false;
+  var hideLocked = false, choiceHidden = false;
   function renderPage(p){
     if (!p) return;
     if (!!p.hide_locked !== hideLocked) { hideLocked = !!p.hide_locked; lastKey = ''; }
+    if (!!p.choice_hidden !== choiceHidden) { choiceHidden = !!p.choice_hidden; lastKey = ''; wrapKey = ''; renderWrap(); }
     if (p.title) { titleText = p.title; document.title = p.title; }
     if (p.weather_date) birthdayAt = new Date(p.weather_date + 'T00:00:00+01:00');
     updateTitle();
