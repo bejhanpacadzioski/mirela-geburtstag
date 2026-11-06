@@ -7,7 +7,7 @@
 <title>Steuerung · Mirelas Tag</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=38">
+<link rel="stylesheet" href="style.css?v=39">
 </head>
 <body>
 <main class="wrap">
@@ -159,7 +159,7 @@
   </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=38"></script>
+<script src="config.js?v=39"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -824,6 +824,7 @@
       else if (e.kind === 'foto') { txt = 'Aufgabe 1 gelöst: Foto hochgeladen'; cls = 'ok'; }
       else if (e.kind === 'gelöst') { txt = 'Aufgabe ' + e.step + ' gelöst' + (e.detail ? ' (' + e.detail + ')' : ''); cls = 'ok'; }
       else if (e.kind === 'falsch') { txt = 'Aufgabe ' + e.step + ' falsch: ' + (e.detail || ''); cls = 'bad'; }
+      else if (e.kind === 'aufgedeckt') { txt = 'Freigerubbelt: ' + (e.detail || ''); cls = 'ok'; }
       else if (e.kind === 'drin') { txt = 'Rätsel komplett gelöst, Seite offen'; cls = 'ok strong'; }
       else txt = e.kind;
       return '<li class="'+cls+'"><time>'+esc(t)+'</time><span>'+esc(txt)+'</span>'+(e.device ? '<small>'+esc(e.device)+'</small>' : '')+'</li>';
