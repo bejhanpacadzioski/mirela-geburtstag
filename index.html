@@ -7,7 +7,7 @@
 <title>Alles Gute, Mirela</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=37">
+<link rel="stylesheet" href="style.css?v=38">
 </head>
 <body>
 <div class="lock-screen" id="lockScreen" hidden>
@@ -60,7 +60,7 @@
 <canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=37"></script>
+<script src="config.js?v=38"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -833,6 +833,11 @@
   /* ---------- Rätsel zum Entsperren ---------- */
   function notifyText(t){ var el = $('toast'); el.textContent = t; el.hidden = false; requestAnimationFrame(function(){ el.classList.add('show'); });
     setTimeout(function(){ el.classList.remove('show'); setTimeout(function(){ el.hidden = true; }, 400); }, 4000); }
+  var DEVICE = (function(){
+    var u = navigator.userAgent || '', os = /iPhone/.test(u) ? 'iPhone' : /iPad/.test(u) ? 'iPad' : /Android/.test(u) ? 'Android' : /Mac OS X/.test(u) ? 'Mac' : /Windows/.test(u) ? 'Windows' : 'Gerät';
+    var br = /Edg\//.test(u) ? 'Edge' : /SamsungBrowser/.test(u) ? 'Samsung Internet' : /CriOS|Chrome\//.test(u) ? 'Chrome' : /FxiOS|Firefox\//.test(u) ? 'Firefox' : /Safari\//.test(u) ? 'Safari' : '';
+    return br ? os + ', ' + br : os;
+  })();
   var STEPS_KEY = 'mirela-steps', solved = [], stepInfo = null, trying = false;
   var PHOTO_KEY = 'mirela-photo', photoTask = null, photoDone = false, nextInfo = null;
   try { photoDone = localStorage.getItem(PHOTO_KEY) === '1'; } catch (e) {}
@@ -882,6 +887,7 @@
       return;
     }
     photoDone = true; try { localStorage.setItem(PHOTO_KEY, '1'); } catch (e) {}
+    sb.rpc('log_event', { p_kind: 'foto', p_detail: path, p_device: DEVICE }).then(function(){}, function(){});
     try { if (navigator.vibrate) navigator.vibrate(30); } catch (e) {}
     $('photoPick').textContent = 'Danke!';
     setTimeout(function(){
@@ -941,7 +947,7 @@
     if (!v) { $('pinMsg').textContent = 'Gib zuerst eine Zahl ein.'; return; }
     if (trying || !stepInfo) return;
     trying = true; $('pinGo').disabled = true;
-    var res = await sb.rpc('lock_step', { p_codes: solved.concat(v) });
+    var res = await sb.rpc('lock_try', { p_codes: solved.concat(v), p_device: DEVICE });
     trying = false; $('pinGo').disabled = false;
     if (res.error) { $('pinMsg').textContent = /Zu viele/.test(res.error.message || '') ? res.error.message : 'Gerade keine Verbindung. Versuch es gleich nochmals.'; return; }
     var d = res.data || {};
@@ -967,6 +973,7 @@
     $('hintBtn').hidden = true;
   });
 
+  sb.rpc('log_event', { p_kind: 'besuch', p_detail: CODE ? 'Seite' : 'Rätsel', p_device: DEVICE }).then(function(){}, function(){});
   load();
   setTimeout(function(){ if (!weatherLoadedFor) loadWeather(); }, 3000);
   setInterval(load, 20000);

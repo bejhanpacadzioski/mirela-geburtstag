@@ -7,7 +7,7 @@
 <title>Steuerung · Mirelas Tag</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=37">
+<link rel="stylesheet" href="style.css?v=38">
 </head>
 <body>
 <main class="wrap">
@@ -105,6 +105,12 @@
         <div class="actions"><button type="submit" id="textSave">Speichern</button></div>
       </form>
     </details>
+    <details class="texts" id="logBox">
+      <summary>Aktivität auf Mirelas Seite</summary>
+      <p class="opt" style="margin:10px 0">Wann die Seite geöffnet wurde, welche Aufgaben gelöst sind und was falsch eingegeben wurde. Deine eigenen Besuche erscheinen hier auch.</p>
+      <ul class="log-list" id="logList"><li class="opt">Noch nichts passiert.</li></ul>
+      <div class="actions"><button type="button" class="ghost" id="logReload">Aktualisieren</button><button type="button" class="ghost" id="logClear">Liste leeren</button></div>
+    </details>
 
     <div class="filterbar" role="group" aria-label="Anzeige">
       <span>Liste zeigt</span>
@@ -153,7 +159,7 @@
   </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=37"></script>
+<script src="config.js?v=38"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -806,6 +812,33 @@
     loadLockPhotos();
   });
   $('textsBox').addEventListener('toggle', function(){ if ($('textsBox').open) loadLockPhotos(); });
+  async function loadLog(){
+    var r = await sb.from('lock_events').select('*').order('at', { ascending: false }).limit(200);
+    if (r.error) { $('logList').innerHTML = '<li class="opt">Konnte nicht geladen werden: '+esc(r.error.message)+'</li>'; return; }
+    var rows = r.data || [];
+    if (!rows.length) { $('logList').innerHTML = '<li class="opt">Noch nichts passiert.</li>'; return; }
+    $('logList').innerHTML = rows.map(function(e){
+      var t = new Date(e.at).toLocaleString('de-CH', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      var txt, cls = '';
+      if (e.kind === 'besuch') txt = e.detail === 'Seite' ? 'Seite geöffnet' : 'Rätsel geöffnet';
+      else if (e.kind === 'foto') { txt = 'Aufgabe 1 gelöst: Foto hochgeladen'; cls = 'ok'; }
+      else if (e.kind === 'gelöst') { txt = 'Aufgabe ' + e.step + ' gelöst' + (e.detail ? ' (' + e.detail + ')' : ''); cls = 'ok'; }
+      else if (e.kind === 'falsch') { txt = 'Aufgabe ' + e.step + ' falsch: ' + (e.detail || ''); cls = 'bad'; }
+      else if (e.kind === 'drin') { txt = 'Rätsel komplett gelöst, Seite offen'; cls = 'ok strong'; }
+      else txt = e.kind;
+      return '<li class="'+cls+'"><time>'+esc(t)+'</time><span>'+esc(txt)+'</span>'+(e.device ? '<small>'+esc(e.device)+'</small>' : '')+'</li>';
+    }).join('');
+  }
+  $('logBox').addEventListener('toggle', function(){ if ($('logBox').open) loadLog(); });
+  $('logReload').addEventListener('click', loadLog);
+  $('logClear').addEventListener('click', async function(){
+    var b = $('logClear');
+    if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = 'Wirklich alles löschen?'; setTimeout(function(){ b.dataset.armed = ''; b.textContent = 'Liste leeren'; }, 3000); return; }
+    b.dataset.armed = ''; b.textContent = 'Liste leeren';
+    var r = await sb.from('lock_events').delete().gt('id', 0);
+    if (r.error) { say($('msg'), 'Liste konnte nicht geleert werden: ' + r.error.message, true); return; }
+    say($('msg'), 'Liste geleert.'); loadLog();
+  });
   ['task','tip','code'].forEach(function(k){ [1,2,3].forEach(function(n){ $('lk-'+k+'-'+n).addEventListener('input', function(){ textDirty = true; }); }); });
   $('t-intro-title').addEventListener('input', function(){ textDirty = true; });
   $('t-intro').addEventListener('input', function(){ textDirty = true; });
