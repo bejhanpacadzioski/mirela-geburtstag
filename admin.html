@@ -7,7 +7,7 @@
 <title>Steuerung · Mirelas Tag</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=46">
+<link rel="stylesheet" href="style.css?v=47">
 </head>
 <body>
 <main class="wrap">
@@ -160,7 +160,7 @@
   </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=46"></script>
+<script src="config.js?v=47"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -202,7 +202,7 @@
       fieldHTML('f-place', 'Untertitel', 'optional', '<input id="f-place" value="'+esc(it.place)+'">')+
       fieldHTML('f-note', 'Beschreibung', 'optional', '<textarea id="f-note" rows="3">'+esc(it.note)+'</textarea>')+
       fieldHTML('f-location', 'Ort', 'optional, erscheint als Kartenlink', '<input id="f-location" placeholder="z. B. Furrengasse 6, 6004 Luzern" value="'+esc(it.location)+'">')+
-      fieldHTML('f-link', 'Link für mich', 'optional, z. B. Reservierung. Mirela sieht ihn nie.', '<input id="f-link" type="url" inputmode="url" placeholder="https://…" value="'+esc(it.admin_link)+'">')+
+      fieldHTML('f-link', 'Link', 'optional, z. B. Website oder Reservierung. Mirela sieht ihn, sobald der Eintrag freigegeben ist.', '<input id="f-link" type="url" inputmode="url" placeholder="https://…" value="'+esc(it.admin_link)+'">')+
 
       '<div class="actions"><button type="submit"'+(busy?' disabled':'')+'>Speichern</button>'+
       '<button type="button" class="ghost" data-act="cancel">Abbrechen</button>'+del+'</div>'+

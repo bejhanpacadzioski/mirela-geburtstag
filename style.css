@@ -430,3 +430,8 @@ canvas.confetti.on{display:block}
 .infobar{flex-wrap:nowrap;gap:8px}
 .infobar .badge{flex:0 1 auto;min-width:0;font-size:12px;padding:5px 10px;gap:5px;line-height:1.25}
 .infobar .badge-icon{flex:none;width:16px;height:16px}
+.slot-link{display:inline-flex;margin-top:8px;font-size:14px;font-weight:600;color:var(--lake);text-decoration:none;word-break:break-all}
+.slot-link:hover{text-decoration:underline}
+.loc + .slot-link{margin-left:0}
+.ticket-link{display:inline-block;margin-top:10px}
+.slot-link{display:flex;width:fit-content}
