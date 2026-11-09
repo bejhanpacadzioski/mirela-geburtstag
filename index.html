@@ -7,7 +7,7 @@
 <title>Alles Gute, Mirela</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=47">
+<link rel="stylesheet" href="style.css?v=48">
 </head>
 <body>
 <div class="lock-screen" id="lockScreen" hidden>
@@ -46,6 +46,7 @@
     <section class="choice" id="choice" hidden></section>
     <section class="choice" id="choice2" hidden></section>
   </section>
+  <section class="quiz" id="quiz" hidden aria-live="polite"></section>
   <div class="day-head">
     <h2>Dein Tag</h2>
     <div class="progress"><div class="bar"><span id="bar"></span></div><span id="count"></span></div>
@@ -59,7 +60,7 @@
 <canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=47"></script>
+<script src="config.js?v=48"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -600,6 +601,97 @@
     b.hidden = false;
   }
 
+
+  // ---------- Fragen an Mirela ----------
+  var quizList = [], quizKey = '', quizSel = {}, quizShow = null, quizSending = false;
+  function renderQuiz(list){
+    quizList = list || [];
+    var box = $('quiz');
+    if (!quizList.length) { box.hidden = true; box.innerHTML = ''; return; }
+    var answered = quizList.filter(function(q){ return q.answer; });
+    var right = answered.filter(function(q){ return q.answer === q.correct; }).length;
+    var open = quizList.filter(function(q){ return !q.answer; });
+    var cur = quizShow && quizList.find(function(q){ return q.id === quizShow; }) || open[0] || null;
+    var dots = quizList.map(function(q){
+      var c = !q.answer ? '' : (q.answer === q.correct ? 'ok' : 'bad');
+      return '<span class="'+c+(cur && q.id === cur.id ? ' now' : '')+'"></span>';
+    }).join('');
+    var stat = answered.length
+      ? '<b>'+right+'</b> von '+answered.length+' richtig'
+      : 'Noch keine Frage beantwortet';
+    var html = '<div class="quiz-head"><p class="eyebrow">Wie gut kennst du uns?</p><h2>Fragen an dich</h2>'+
+      '<div class="quiz-stat"><p>'+stat+(open.length ? '<span> · '+open.length+(open.length === 1 ? ' Frage offen' : ' Fragen offen')+'</span>' : '')+'</p>'+
+      '<div class="quiz-dots" aria-hidden="true">'+dots+'</div></div></div>';
+    if (cur) html += quizCard(cur, quizList.indexOf(cur) + 1);
+    else html += '<p class="quiz-done">Alle Fragen beantwortet. Bis zum Geburtstag kommen vielleicht noch ein paar dazu.</p>';
+    if (answered.length) {
+      html += '<details class="quiz-past"><summary>Deine Antworten ('+answered.length+')</summary><ol>'+
+        quizList.map(function(q, i){
+          if (!q.answer) return '';
+          var ok = q.answer === q.correct;
+          return '<li class="'+(ok ? 'ok' : 'bad')+'"><span class="quiz-mark">'+(ok ? '✓' : '✗')+'</span><div><p class="quiz-pq">'+esc(q.question)+'</p>'+
+            '<p class="quiz-pa">'+(ok ? esc(q.answers[q.answer - 1]) : 'Du: '+esc(q.answers[q.answer - 1])+' · Richtig: '+esc(q.answers[q.correct - 1]))+'</p>'+
+            (q.explanation ? '<p class="quiz-px">'+esc(q.explanation)+'</p>' : '')+'</div></li>';
+        }).join('')+'</ol></details>';
+    }
+    var wasOpen = box.querySelector('.quiz-past') && box.querySelector('.quiz-past').open;
+    box.innerHTML = html; box.hidden = false;
+    if (wasOpen && box.querySelector('.quiz-past')) box.querySelector('.quiz-past').open = true;
+  }
+  function quizCard(q, no){
+    var done = !!q.answer, sel = quizSel[q.id] || 0;
+    var isNew = !done && q.published_at && (Date.now() - Date.parse(q.published_at)) < 36 * 3600 * 1000;
+    var opts = q.answers.map(function(a, i){
+      var n = i + 1, cls = 'quiz-opt';
+      if (done) { if (n === q.correct) cls += ' right'; else if (n === q.answer) cls += ' wrong'; else cls += ' dim'; }
+      else if (n === sel) cls += ' sel';
+      return '<button type="button" class="'+cls+'" data-n="'+n+'"'+(done ? ' disabled' : '')+' aria-pressed="'+(n === sel)+'"><span class="quiz-letter">'+'ABCD'[i]+'</span><span>'+esc(a)+'</span></button>';
+    }).join('');
+    var foot;
+    if (done) {
+      var ok = q.answer === q.correct;
+      var more = quizList.some(function(x){ return !x.answer; });
+      foot = '<div class="quiz-verdict '+(ok ? 'ok' : 'bad')+'"><p class="quiz-v">'+(ok ? 'Richtig!' : 'Leider falsch.')+'</p>'+
+        (q.explanation ? '<p>'+esc(q.explanation)+'</p>' : '')+'</div>'+
+        '<button type="button" class="quiz-next">'+(more ? 'Nächste Frage' : 'Fertig')+'</button>';
+    } else {
+      foot = '<button type="button" class="quiz-go"'+(sel ? '' : ' disabled')+'>Antwort abgeben</button>';
+    }
+    return '<div class="quiz-card" data-id="'+esc(q.id)+'"><p class="quiz-no">Frage '+no+(isNew ? ' <span class="quiz-new">Neu</span>' : '')+'</p>'+
+      '<h3>'+esc(q.question)+'</h3><div class="quiz-opts">'+opts+'</div>'+foot+'</div>';
+  }
+  $('quiz').addEventListener('click', async function(e){
+    var card = e.target.closest('.quiz-card');
+    var id = card && card.dataset.id;
+    var opt = e.target.closest('.quiz-opt');
+    if (opt && !opt.disabled && id) { quizSel[id] = +opt.dataset.n; renderQuiz(quizList); return; }
+    if (e.target.closest('.quiz-next')) {
+      quizShow = null; renderQuiz(quizList);
+      var c = $('quiz').querySelector('.quiz-card'); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    var go = e.target.closest('.quiz-go');
+    if (go && id && quizSel[id] && !quizSending) {
+      quizSending = true; go.disabled = true; go.textContent = 'Einen Moment …';
+      var res = await sb.rpc('quiz_answer', { p_pin: CODE, p_id: id, p_choice: quizSel[id], p_device: DEVICE });
+      quizSending = false;
+      if (res.error || !res.data || res.data.error) {
+        if (res.data && res.data.error === 'pin') { lockAgain(); return; }
+        go.disabled = false; go.textContent = 'Antwort abgeben';
+        var tt = $('quiz').querySelector('.quiz-err'); if (!tt) { tt = document.createElement('p'); tt.className = 'quiz-err'; go.after(tt); }
+        tt.textContent = 'Das hat nicht geklappt. Versuch es nochmals.'; return;
+      }
+      var q = quizList.find(function(x){ return x.id === id; });
+      if (q) { q.answer = res.data.answer; q.correct = res.data.correct; q.explanation = res.data.explanation; }
+      quizShow = id; quizKey = '';
+      renderQuiz(quizList);
+      var ok = res.data.answer === res.data.correct;
+      try { if (navigator.vibrate) navigator.vibrate(ok ? 30 : [40, 60, 40]); } catch (err) {}
+      if (ok) kittens(5);
+      else { var cd = $('quiz').querySelector('.quiz-card'); if (cd) { cd.classList.remove('shake'); void cd.offsetWidth; cd.classList.add('shake'); } }
+    }
+  });
+
   function confetti(){
     if (reduceMotion) return;
     var c = $('confetti'), ctx = c.getContext('2d'), dpr = window.devicePixelRatio || 1;
@@ -735,6 +827,10 @@
     if (!ev.error && ev.data) {
       if (pollEV.update(ev.data)) lastKey = '';
       renderEveningBadge(ev.data);
+    }
+    if (!err) {
+      var qk = JSON.stringify(d.quiz || []);
+      if (qk !== quizKey) { quizKey = qk; renderQuiz(d.quiz); }
     }
     renderWrap();
     choicePending = pollPM.pending; choiceOpenNow = pollPM.openNow;

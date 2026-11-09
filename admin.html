@@ -7,7 +7,7 @@
 <title>Steuerung · Mirelas Tag</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=47">
+<link rel="stylesheet" href="style.css?v=48">
 </head>
 <body>
 <main class="wrap">
@@ -127,6 +127,25 @@
       <button class="ghost" id="hideAll" type="button">Alle wieder verbergen</button>
       <button class="ghost" id="logout" type="button">Abmelden</button>
     </div>
+    <section class="extra" id="quizBox">
+      <div class="extra-head"><h2>Fragen an Mirela</h2><span class="chip" id="quizChip">–</span></div>
+      <p class="opt">Jede Frage hat vier Antworten, eine davon ist richtig. Mirela kann jede Frage nur einmal beantworten und sieht oben, wie viele sie richtig hat. Die richtige Antwort bekommt ihr Gerät erst, nachdem sie geantwortet hat.</p>
+      <ol class="qa-list" id="quizList"></ol>
+      <div class="actions"><button type="button" id="quizNew">Neue Frage</button></div>
+      <form id="quizForm" class="editor" hidden>
+        <div class="field"><label for="q-text">Frage</label><textarea id="q-text" rows="2" maxlength="300" required></textarea></div>
+        <fieldset class="q-answers"><legend>Antworten <span class="opt">Punkt setzen bei der richtigen</span></legend>
+          <div class="q-ans"><input type="radio" name="q-right" value="1" id="q-r1" aria-label="Antwort A ist richtig"><input id="q-a1" maxlength="120" placeholder="Antwort A" required></div>
+          <div class="q-ans"><input type="radio" name="q-right" value="2" id="q-r2" aria-label="Antwort B ist richtig"><input id="q-a2" maxlength="120" placeholder="Antwort B" required></div>
+          <div class="q-ans"><input type="radio" name="q-right" value="3" id="q-r3" aria-label="Antwort C ist richtig"><input id="q-a3" maxlength="120" placeholder="Antwort C" required></div>
+          <div class="q-ans"><input type="radio" name="q-right" value="4" id="q-r4" aria-label="Antwort D ist richtig"><input id="q-a4" maxlength="120" placeholder="Antwort D" required></div>
+        </fieldset>
+        <div class="field"><label for="q-expl">Auflösung <span class="opt">optional, sieht sie nach dem Antworten</span></label><textarea id="q-expl" rows="2" maxlength="400"></textarea></div>
+        <label class="check"><input type="checkbox" id="q-pub"> Gleich aufschalten</label>
+        <div class="actions"><button type="submit" id="quizSave">Frage speichern</button><button type="button" class="ghost" id="quizCancel">Abbrechen</button></div>
+      </form>
+    </section>
+
     <section class="extra" id="letterBox">
       <div class="extra-head"><h2>Geburtstagskarte</h2><span class="chip" id="letterChip">Gesperrt</span></div>
       <p class="opt">Ein persönlicher Brief am Ende von Mirelas Seite. Bis zum Freischalten sieht sie nur einen verschlossenen Umschlag.</p>
@@ -160,7 +179,7 @@
   </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=47"></script>
+<script src="config.js?v=48"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -826,6 +845,8 @@
       else if (e.kind === 'foto') { txt = 'Aufgabe 1 gelöst: Foto hochgeladen'; cls = 'ok'; }
       else if (e.kind === 'gelöst') { txt = 'Aufgabe ' + e.step + ' gelöst' + (e.detail ? ' (' + e.detail + ')' : ''); cls = 'ok'; }
       else if (e.kind === 'falsch') { txt = 'Aufgabe ' + e.step + ' falsch: ' + (e.detail || ''); cls = 'bad'; }
+      else if (e.kind === 'quiz-richtig') { txt = 'Frage richtig: ' + (e.detail || ''); cls = 'ok'; }
+      else if (e.kind === 'quiz-falsch') { txt = 'Frage falsch: ' + (e.detail || ''); cls = 'bad'; }
       else if (e.kind === 'aufgedeckt') { txt = 'Freigerubbelt: ' + (e.detail || ''); cls = 'ok'; }
       else if (e.kind === 'drin') { txt = 'Rätsel komplett gelöst, Seite offen'; cls = 'ok strong'; }
       else txt = e.kind;
@@ -985,12 +1006,118 @@
   });
 
   var shown = null;
+
+  // ---------- Fragen an Mirela ----------
+  var quiz = [], quizEdit = null, quizBusy = false;
+  async function loadQuiz(){
+    var r = await sb.from('quiz').select('*').order('sort').order('created_at');
+    if (r.error) { $('quizList').innerHTML = '<li class="opt">Fragen konnten nicht geladen werden: '+esc(r.error.message)+'</li>'; return; }
+    quiz = r.data || [];
+    renderQuizAdmin();
+  }
+  function renderQuizAdmin(){
+    var pub = quiz.filter(function(q){ return q.published; });
+    var ans = quiz.filter(function(q){ return q.answer; });
+    var ok = ans.filter(function(q){ return q.answer === q.correct; }).length;
+    $('quizChip').textContent = quiz.length ? (ans.length ? ok + ' von ' + ans.length + ' richtig' : pub.length + ' aufgeschaltet') : 'Noch keine';
+    $('quizChip').classList.toggle('on', pub.length > 0);
+    if (!quiz.length) { $('quizList').innerHTML = '<li class="opt">Noch keine Fragen. Leg mit «Neue Frage» los.</li>'; return; }
+    $('quizList').innerHTML = quiz.map(function(q, i){
+      var st = !q.published ? '<span class="chip">Entwurf</span>'
+        : !q.answer ? '<span class="chip on">Aufgeschaltet</span>'
+        : (q.answer === q.correct ? '<span class="chip qa-ok">Richtig</span>' : '<span class="chip qa-bad">Falsch</span>');
+      var answers = (q.answers || []).map(function(a, k){
+        var cls = (k + 1 === q.correct ? ' right' : '') + (q.answer && k + 1 === q.answer ? ' picked' : '');
+        return '<li class="'+cls.trim()+'"><b>'+'ABCD'[k]+'</b> '+esc(a)+(k + 1 === q.correct ? ' ✓' : '')+(q.answer && k + 1 === q.answer ? ' <span class="opt">(ihre Antwort)</span>' : '')+'</li>';
+      }).join('');
+      return '<li class="qa-item"><div class="qa-top"><span class="qa-no">'+(i + 1)+'</span><p class="qa-q">'+esc(q.question)+'</p>'+st+'</div>'+
+        '<ul class="qa-ans">'+answers+'</ul>'+
+        (q.answered_at ? '<p class="opt">Beantwortet am '+esc(new Date(q.answered_at).toLocaleString('de-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }))+'</p>' : '')+
+        '<div class="qa-actions">'+
+          '<button type="button" class="ghost" data-q="edit" data-id="'+q.id+'">Bearbeiten</button>'+
+          '<button type="button" class="ghost" data-q="pub" data-id="'+q.id+'">'+(q.published ? 'Zurückziehen' : 'Aufschalten')+'</button>'+
+          (q.answer ? '<button type="button" class="ghost" data-q="reset" data-id="'+q.id+'">Antwort zurücksetzen</button>' : '')+
+          (i > 0 ? '<button type="button" class="ghost" data-q="up" data-id="'+q.id+'" aria-label="Nach oben">↑</button>' : '')+
+          '<button type="button" class="ghost danger" data-q="del" data-id="'+q.id+'">Löschen</button>'+
+        '</div></li>';
+    }).join('');
+  }
+  async function quizRun(fn, okText){
+    if (quizBusy) return; quizBusy = true;
+    var r = await fn();
+    quizBusy = false;
+    if (r && r.error) { say($('msg'), 'Hat nicht geklappt: ' + r.error.message, true); return false; }
+    await loadQuiz(); if (okText) say($('msg'), okText);
+    return true;
+  }
+  function openQuizForm(q){
+    quizEdit = q ? q.id : null;
+    $('q-text').value = q ? q.question : '';
+    for (var k = 1; k <= 4; k++) { $('q-a' + k).value = q ? (q.answers[k - 1] || '') : ''; $('q-r' + k).checked = q ? q.correct === k : false; }
+    $('q-expl').value = q ? (q.explanation || '') : '';
+    $('q-pub').checked = q ? q.published : false;
+    $('quizSave').textContent = q ? 'Änderungen speichern' : 'Frage speichern';
+    $('quizForm').hidden = false; $('quizNew').hidden = true;
+    $('q-text').focus();
+  }
+  function closeQuizForm(){ quizEdit = null; $('quizForm').hidden = true; $('quizNew').hidden = false; }
+  $('quizNew').addEventListener('click', function(){ openQuizForm(null); });
+  $('quizCancel').addEventListener('click', closeQuizForm);
+  $('quizForm').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var right = document.querySelector('input[name="q-right"]:checked');
+    if (!right) { say($('msg'), 'Bitte markiere die richtige Antwort.', true); return; }
+    var answers = [1, 2, 3, 4].map(function(k){ return $('q-a' + k).value.trim(); });
+    if (answers.some(function(a){ return !a; })) { say($('msg'), 'Bitte alle vier Antworten ausfüllen.', true); return; }
+    var data = { question: $('q-text').value.trim(), answers: answers, correct: +right.value,
+                 explanation: $('q-expl').value.trim() || null, published: $('q-pub').checked };
+    if (!data.question) { say($('msg'), 'Bitte gib eine Frage ein.', true); return; }
+    var editing = quizEdit, old = quiz.find(function(q){ return q.id === editing; });
+    if (old && old.answer && old.correct !== data.correct) {
+      if (!confirm('Mirela hat diese Frage schon beantwortet. Wenn du die richtige Antwort änderst, ändert sich auch ihre Statistik. Trotzdem speichern?')) return;
+    }
+    var ok = await quizRun(function(){
+      if (editing) return sb.from('quiz').update(data).eq('id', editing);
+      var max = quiz.reduce(function(m, q){ return Math.max(m, q.sort || 0); }, 0);
+      data.sort = max + 10;
+      return sb.from('quiz').insert(data);
+    }, editing ? 'Frage gespeichert.' : (data.published ? 'Frage aufgeschaltet. Mirela sieht sie gleich.' : 'Frage als Entwurf gespeichert.'));
+    if (ok) closeQuizForm();
+  });
+  $('quizList').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-q]'); if (!b) return;
+    var q = quiz.find(function(x){ return x.id === b.dataset.id; }); if (!q) return;
+    var act = b.dataset.q;
+    if (act === 'edit') { openQuizForm(q); $('quizForm').scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+    if (act === 'pub') return quizRun(function(){ return sb.from('quiz').update({ published: !q.published }).eq('id', q.id); }, q.published ? 'Frage zurückgezogen.' : 'Frage aufgeschaltet. Mirela sieht sie gleich.');
+    if (act === 'reset') {
+      if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = 'Wirklich?'; setTimeout(function(){ b.dataset.armed = ''; b.textContent = 'Antwort zurücksetzen'; }, 3000); return; }
+      return quizRun(function(){ return sb.from('quiz').update({ answer: null, answered_at: null }).eq('id', q.id); }, 'Antwort zurückgesetzt. Mirela kann die Frage nochmals beantworten.');
+    }
+    if (act === 'del') {
+      if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = 'Wirklich löschen?'; setTimeout(function(){ b.dataset.armed = ''; b.textContent = 'Löschen'; }, 3000); return; }
+      return quizRun(function(){ return sb.from('quiz').delete().eq('id', q.id); }, 'Frage gelöscht.');
+    }
+    if (act === 'up') {
+      var i = quiz.indexOf(q), p = quiz[i - 1]; if (!p) return;
+      return quizRun(async function(){
+        var steps = quiz.map(function(x, k){ return { id: x.id, sort: (k + 1) * 10 }; });
+        steps[i].sort = i * 10; steps[i - 1].sort = (i + 1) * 10;
+        for (var k = 0; k < steps.length; k++) {
+          var r = await sb.from('quiz').update({ sort: steps[k].sort }).eq('id', steps[k].id);
+          if (r.error) return r;
+        }
+        return {};
+      });
+    }
+  });
+
   function show(session){
     var key = session ? session.user.id : '';
     if (key === shown) return; shown = key;
     $('login').hidden = !!session;
     $('panel').hidden = !session;
-    if (session) loadAll();
+    if (session) { loadAll(); loadQuiz(); }
   }
   sb.auth.getSession().then(function(r){ show(r.data.session); });
   sb.auth.onAuthStateChange(function(_event, session){ show(session); });
