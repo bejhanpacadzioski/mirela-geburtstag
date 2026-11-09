@@ -7,7 +7,7 @@
 <title>Alles Gute, Mirela</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=48">
+<link rel="stylesheet" href="style.css?v=49">
 </head>
 <body>
 <div class="lock-screen" id="lockScreen" hidden>
@@ -60,7 +60,7 @@
 <canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=48"></script>
+<script src="config.js?v=49"></script>
 <script>
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -602,93 +602,123 @@
   }
 
 
-  // ---------- Fragen an Mirela ----------
-  var quizList = [], quizKey = '', quizSel = {}, quizShow = null, quizSending = false;
+  // ---------- Fragen an Mirela (offen, ohne richtig/falsch) ----------
+  var quizList = [], quizKey = '', quizDraft = {}, quizShow = null, quizThanks = null, quizSending = false;
+  function qOpts(q){ return (q.options || []).filter(function(o){ return o != null && o !== ''; }); }
   function renderQuiz(list){
     quizList = list || [];
     var box = $('quiz');
     if (!quizList.length) { box.hidden = true; box.innerHTML = ''; return; }
     var answered = quizList.filter(function(q){ return q.answer; });
-    var right = answered.filter(function(q){ return q.answer === q.correct; }).length;
     var open = quizList.filter(function(q){ return !q.answer; });
-    var cur = quizShow && quizList.find(function(q){ return q.id === quizShow; }) || open[0] || null;
-    var dots = quizList.map(function(q){
-      var c = !q.answer ? '' : (q.answer === q.correct ? 'ok' : 'bad');
-      return '<span class="'+c+(cur && q.id === cur.id ? ' now' : '')+'"></span>';
-    }).join('');
-    var stat = answered.length
-      ? '<b>'+right+'</b> von '+answered.length+' richtig'
-      : 'Noch keine Frage beantwortet';
-    var html = '<div class="quiz-head"><p class="eyebrow">Wie gut kennst du uns?</p><h2>Fragen an dich</h2>'+
-      '<div class="quiz-stat"><p>'+stat+(open.length ? '<span> · '+open.length+(open.length === 1 ? ' Frage offen' : ' Fragen offen')+'</span>' : '')+'</p>'+
-      '<div class="quiz-dots" aria-hidden="true">'+dots+'</div></div></div>';
-    if (cur) html += quizCard(cur, quizList.indexOf(cur) + 1);
-    else html += '<p class="quiz-done">Alle Fragen beantwortet. Bis zum Geburtstag kommen vielleicht noch ein paar dazu.</p>';
+    var cur = (quizShow && quizList.find(function(q){ return q.id === quizShow; })) || open[0] || null;
+    var dots = quizList.map(function(q){ return '<span class="'+(q.answer ? 'ok' : '')+(cur && q.id === cur.id ? ' now' : '')+'"></span>'; }).join('');
+    var stat = answered.length === quizList.length
+      ? 'Alle <b>'+answered.length+'</b> beantwortet'
+      : '<b>'+answered.length+'</b> von '+quizList.length+' beantwortet';
+    var html = '<div class="quiz-head"><p class="eyebrow">Ich will\'s wissen</p><h2>Fragen an dich</h2>'+
+      '<div class="quiz-stat"><p>'+stat+'</p><div class="quiz-dots" aria-hidden="true">'+dots+'</div></div></div>';
+    if (cur) html += quizThanks === cur.id ? thanksCard(cur) : quizCard(cur, quizList.indexOf(cur) + 1);
+    else html += '<p class="quiz-done">Danke für alle Antworten! Vielleicht kommen bis zu deinem Geburtstag noch ein paar Fragen dazu.</p>';
     if (answered.length) {
       html += '<details class="quiz-past"><summary>Deine Antworten ('+answered.length+')</summary><ol>'+
-        quizList.map(function(q, i){
+        quizList.map(function(q){
           if (!q.answer) return '';
-          var ok = q.answer === q.correct;
-          return '<li class="'+(ok ? 'ok' : 'bad')+'"><span class="quiz-mark">'+(ok ? '✓' : '✗')+'</span><div><p class="quiz-pq">'+esc(q.question)+'</p>'+
-            '<p class="quiz-pa">'+(ok ? esc(q.answers[q.answer - 1]) : 'Du: '+esc(q.answers[q.answer - 1])+' · Richtig: '+esc(q.answers[q.correct - 1]))+'</p>'+
-            (q.explanation ? '<p class="quiz-px">'+esc(q.explanation)+'</p>' : '')+'</div></li>';
+          return '<li><div><p class="quiz-pq">'+esc(q.question)+'</p><p class="quiz-pa">'+esc(q.answer)+'</p></div>'+
+            '<button type="button" class="ghost quiz-edit" data-id="'+esc(q.id)+'">Ändern</button></li>';
         }).join('')+'</ol></details>';
     }
-    var wasOpen = box.querySelector('.quiz-past') && box.querySelector('.quiz-past').open;
+    var past = box.querySelector('.quiz-past'), wasOpen = past && past.open;
+    var ta = box.querySelector('.quiz-text'), hadFocus = ta && document.activeElement === ta;
     box.innerHTML = html; box.hidden = false;
     if (wasOpen && box.querySelector('.quiz-past')) box.querySelector('.quiz-past').open = true;
+    if (hadFocus && box.querySelector('.quiz-text')) { var t2 = box.querySelector('.quiz-text'); t2.focus(); t2.setSelectionRange(t2.value.length, t2.value.length); }
+  }
+  function draftOf(q){
+    if (!quizDraft[q.id]) {
+      var opts = qOpts(q);
+      quizDraft[q.id] = q.answer
+        ? { opt: q.answer_option || 0, text: q.answer_option ? '' : q.answer, other: !q.answer_option && opts.length > 0 }
+        : { opt: 0, text: '', other: false };
+    }
+    return quizDraft[q.id];
   }
   function quizCard(q, no){
-    var done = !!q.answer, sel = quizSel[q.id] || 0;
-    var isNew = !done && q.published_at && (Date.now() - Date.parse(q.published_at)) < 36 * 3600 * 1000;
-    var opts = q.answers.map(function(a, i){
-      var n = i + 1, cls = 'quiz-opt';
-      if (done) { if (n === q.correct) cls += ' right'; else if (n === q.answer) cls += ' wrong'; else cls += ' dim'; }
-      else if (n === sel) cls += ' sel';
-      return '<button type="button" class="'+cls+'" data-n="'+n+'"'+(done ? ' disabled' : '')+' aria-pressed="'+(n === sel)+'"><span class="quiz-letter">'+'ABCD'[i]+'</span><span>'+esc(a)+'</span></button>';
-    }).join('');
-    var foot;
-    if (done) {
-      var ok = q.answer === q.correct;
-      var more = quizList.some(function(x){ return !x.answer; });
-      foot = '<div class="quiz-verdict '+(ok ? 'ok' : 'bad')+'"><p class="quiz-v">'+(ok ? 'Richtig!' : 'Leider falsch.')+'</p>'+
-        (q.explanation ? '<p>'+esc(q.explanation)+'</p>' : '')+'</div>'+
-        '<button type="button" class="quiz-next">'+(more ? 'Nächste Frage' : 'Fertig')+'</button>';
-    } else {
-      foot = '<button type="button" class="quiz-go"'+(sel ? '' : ' disabled')+'>Antwort abgeben</button>';
+    var opts = qOpts(q), d = draftOf(q);
+    var isNew = !q.answer && q.published_at && (Date.now() - Date.parse(q.published_at)) < 36 * 3600 * 1000;
+    var body = '';
+    if (opts.length) {
+      body += '<div class="quiz-opts">' + opts.map(function(o, i){
+        var on = !d.other && d.opt === i + 1;
+        return '<button type="button" class="quiz-opt'+(on ? ' sel' : '')+'" data-n="'+(i + 1)+'" aria-pressed="'+on+'"><span class="quiz-letter">'+(on ? '✓' : String.fromCharCode(65 + i))+'</span><span>'+esc(o)+'</span></button>';
+      }).join('');
+      if (q.allow_other) body += '<button type="button" class="quiz-opt quiz-other'+(d.other ? ' sel' : '')+'" data-n="0" aria-pressed="'+d.other+'"><span class="quiz-letter">'+(d.other ? '✓' : '+')+'</span><span>Etwas anderes …</span></button>';
+      body += '</div>';
     }
-    return '<div class="quiz-card" data-id="'+esc(q.id)+'"><p class="quiz-no">Frage '+no+(isNew ? ' <span class="quiz-new">Neu</span>' : '')+'</p>'+
-      '<h3>'+esc(q.question)+'</h3><div class="quiz-opts">'+opts+'</div>'+foot+'</div>';
+    var showText = !opts.length || d.other;
+    if (showText) body += '<textarea class="quiz-text" rows="'+(opts.length ? 2 : 3)+'" maxlength="500" placeholder="'+(opts.length ? 'Schreib es hier hin' : 'Deine Antwort')+'">'+esc(d.text)+'</textarea>';
+    var ready = (!d.other && d.opt > 0) || ((showText) && d.text.trim());
+    return '<div class="quiz-card" data-id="'+esc(q.id)+'"><p class="quiz-no">Frage '+no+(isNew ? ' <span class="quiz-new">Neu</span>' : '')+(q.answer ? ' <span class="quiz-chg">Antwort ändern</span>' : '')+'</p>'+
+      '<h3>'+esc(q.question)+'</h3>'+body+
+      '<button type="button" class="quiz-go"'+(ready ? '' : ' disabled')+'>'+(q.answer ? 'Speichern' : 'Antwort senden')+'</button>'+
+      (q.answer ? '<button type="button" class="ghost quiz-cancel">Abbrechen</button>' : '')+'</div>';
   }
+  function thanksCard(q){
+    var more = quizList.some(function(x){ return !x.answer; });
+    return '<div class="quiz-card quiz-thanks"><p class="quiz-v">Danke!</p><p class="quiz-pq">'+esc(q.question)+'</p><p class="quiz-mine">'+esc(q.answer)+'</p>'+
+      '<button type="button" class="quiz-next">'+(more ? 'Nächste Frage' : 'Fertig')+'</button></div>';
+  }
+  $('quiz').addEventListener('input', function(e){
+    if (!e.target.classList.contains('quiz-text')) return;
+    var card = e.target.closest('.quiz-card'), q = card && quizList.find(function(x){ return x.id === card.dataset.id; });
+    if (!q) return;
+    draftOf(q).text = e.target.value;
+    var go = card.querySelector('.quiz-go'); if (go) go.disabled = !e.target.value.trim();
+  });
   $('quiz').addEventListener('click', async function(e){
     var card = e.target.closest('.quiz-card');
     var id = card && card.dataset.id;
+    var q = id && quizList.find(function(x){ return x.id === id; });
     var opt = e.target.closest('.quiz-opt');
-    if (opt && !opt.disabled && id) { quizSel[id] = +opt.dataset.n; renderQuiz(quizList); return; }
+    if (opt && q) {
+      var d = draftOf(q), n = +opt.dataset.n;
+      if (n === 0) { d.other = true; d.opt = 0; } else { d.other = false; d.opt = n; }
+      renderQuiz(quizList);
+      if (n === 0) { var ta = $('quiz').querySelector('.quiz-text'); if (ta) ta.focus(); }
+      return;
+    }
     if (e.target.closest('.quiz-next')) {
-      quizShow = null; renderQuiz(quizList);
+      quizThanks = null; quizShow = null; renderQuiz(quizList);
       var c = $('quiz').querySelector('.quiz-card'); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
+    if (e.target.closest('.quiz-cancel')) { if (q) delete quizDraft[q.id]; quizShow = null; renderQuiz(quizList); return; }
+    var ed = e.target.closest('.quiz-edit');
+    if (ed) {
+      quizShow = ed.dataset.id; quizThanks = null; delete quizDraft[quizShow];
+      renderQuiz(quizList);
+      var c2 = $('quiz').querySelector('.quiz-card'); if (c2) c2.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
     var go = e.target.closest('.quiz-go');
-    if (go && id && quizSel[id] && !quizSending) {
+    if (go && q && !quizSending) {
+      var dd = draftOf(q), useOpt = !dd.other && dd.opt > 0;
+      if (!useOpt && !dd.text.trim()) return;
       quizSending = true; go.disabled = true; go.textContent = 'Einen Moment …';
-      var res = await sb.rpc('quiz_answer', { p_pin: CODE, p_id: id, p_choice: quizSel[id], p_device: DEVICE });
+      var res = await sb.rpc('question_answer', { p_pin: CODE, p_id: id, p_option: useOpt ? dd.opt : 0, p_text: useOpt ? null : dd.text, p_device: DEVICE });
       quizSending = false;
       if (res.error || !res.data || res.data.error) {
         if (res.data && res.data.error === 'pin') { lockAgain(); return; }
-        go.disabled = false; go.textContent = 'Antwort abgeben';
-        var tt = $('quiz').querySelector('.quiz-err'); if (!tt) { tt = document.createElement('p'); tt.className = 'quiz-err'; go.after(tt); }
+        go.disabled = false; go.textContent = q.answer ? 'Speichern' : 'Antwort senden';
+        var tt = card.querySelector('.quiz-err'); if (!tt) { tt = document.createElement('p'); tt.className = 'quiz-err'; card.appendChild(tt); }
         tt.textContent = 'Das hat nicht geklappt. Versuch es nochmals.'; return;
       }
-      var q = quizList.find(function(x){ return x.id === id; });
-      if (q) { q.answer = res.data.answer; q.correct = res.data.correct; q.explanation = res.data.explanation; }
-      quizShow = id; quizKey = '';
+      q.answer = res.data.answer; q.answer_option = res.data.answer_option; q.answered_at = new Date().toISOString();
+      delete quizDraft[id];
+      quizShow = id; quizThanks = id; quizKey = '';
       renderQuiz(quizList);
-      var ok = res.data.answer === res.data.correct;
-      try { if (navigator.vibrate) navigator.vibrate(ok ? 30 : [40, 60, 40]); } catch (err) {}
-      if (ok) kittens(5);
-      else { var cd = $('quiz').querySelector('.quiz-card'); if (cd) { cd.classList.remove('shake'); void cd.offsetWidth; cd.classList.add('shake'); } }
+      try { if (navigator.vibrate) navigator.vibrate(30); } catch (err) {}
+      kittens(4);
     }
   });
 
@@ -829,8 +859,8 @@
       renderEveningBadge(ev.data);
     }
     if (!err) {
-      var qk = JSON.stringify(d.quiz || []);
-      if (qk !== quizKey) { quizKey = qk; renderQuiz(d.quiz); }
+      var qk = JSON.stringify(d.questions || []);
+      if (qk !== quizKey && !(document.activeElement && document.activeElement.classList.contains('quiz-text'))) { quizKey = qk; renderQuiz(d.questions); }
     }
     renderWrap();
     choicePending = pollPM.pending; choiceOpenNow = pollPM.openNow;

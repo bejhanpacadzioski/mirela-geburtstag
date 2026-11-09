@@ -513,3 +513,27 @@ canvas.confetti.on{display:block}
 .quiz-verdict.ok .quiz-v{color:var(--ok)}
 .chip.qa-ok{background:var(--ok-soft);color:var(--ok)}
 .chip.qa-bad{background:var(--bad-soft);color:var(--danger)}
+/* Offene Fragen */
+.quiz-dots span.ok{background:var(--gold)}
+.quiz-text{width:100%;min-height:56px;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);font:inherit;font-size:16px;resize:vertical}
+.quiz-text:focus{outline:none;border-color:var(--lake)}
+.quiz-other .quiz-letter{font-size:16px}
+.quiz-chg{letter-spacing:.06em;color:var(--muted);font-weight:500;text-transform:none}
+.quiz-cancel{align-self:center;min-height:36px}
+.quiz-thanks{align-items:flex-start;text-align:left}
+.quiz-thanks .quiz-v{margin:0;color:var(--gold)}
+.quiz-thanks p{margin:0}
+.quiz-mine{font-family:var(--display);font-size:22px;line-height:1.25;color:var(--ink);white-space:pre-line}
+.quiz-thanks .quiz-next{align-self:stretch;margin-top:6px}
+.quiz-past li{display:flex;gap:10px;align-items:flex-start;justify-content:space-between}
+.quiz-past li > div{min-width:0}
+.quiz-past .quiz-pa{color:var(--ink);font-size:15px;white-space:pre-line;overflow-wrap:anywhere}
+.quiz-edit{flex:none;min-height:32px;padding:0 10px;font-size:13px}
+.seg-opt{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;border:1.5px solid var(--line);border-radius:10px;font-weight:600;cursor:pointer}
+.seg-opt:has(input:checked){border-color:var(--lake);background:var(--sel-soft);color:var(--lake)}
+.seg-opt input{accent-color:var(--lake)}
+.q-ans .q-del{flex:none;width:40px;min-height:40px;padding:0;font-size:18px}
+.qa-kind{margin:0;padding-left:34px}
+.qa-answer{margin-left:34px;padding:10px 12px;border-radius:8px;background:var(--gold-soft);display:flex;flex-direction:column;gap:2px}
+.qa-answer p{margin:0;font-family:var(--display);font-size:19px;white-space:pre-line;overflow-wrap:anywhere}
+.seg-opt input{width:auto;min-height:0;flex:none;margin:0;padding:0}
