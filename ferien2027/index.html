@@ -211,7 +211,7 @@ function hotelRow(h, t, isBeach) {
   ${h.note ? `<p class="hn2">${esc(h.note)}</p>` : ""}${h.food ? `<p class="hf">🍽️ ${esc(h.food)}</p>` : ""}
   ${h.src === "Google" && h.price_info ? `<p class="hn2" style="font-size:11.5px">Google-Treffer: ${esc(h.price_info)}</p>` : ""}
   <div class="hl"><a href="${esc(bkLink(h, t))}" target="_blank" rel="noopener">🛏️ Booking</a><a href="${esc(h.maps_url || "#")}" target="_blank" rel="noopener">📍 Karte</a></div>
-  <div class="ed edrow"><button data-act="hedit" data-id="${h.id}">✏️ Bearbeiten</button><button data-act="hprice" data-id="${h.id}">🔄 Preis suchen</button><button class="del" data-act="hdel" data-id="${h.id}">🗑️</button></div>
+  <div class="ed edrow"><button data-act="hedit" data-id="${h.id}">✏️ Bearbeiten</button><button data-act="hprice" data-id="${h.id}">🔄 Preis suchen</button><button class="del" data-act="hdel" data-id="${h.id}">🗑️ Löschen</button></div>
 </li>`;
 }
 
@@ -235,7 +235,7 @@ function card(t, isBeach) {
 <div class="db">
   <div class="fl">✈️ <div>${t.flight_info || ""}${fa}<span>${fp}</span></div></div>
   ${extras ? `<ul class="fx">${extras}</ul>` : ""}
-  <div class="ed edrow"><button data-act="tedit" data-id="${t.id}">✏️ Reise bearbeiten</button><button data-act="fprice" data-id="${t.id}">✈️ Flugpreis suchen</button><button class="del" data-act="tdel" data-id="${t.id}">🗑️ Reise</button></div>
+  <div class="ed edrow"><button data-act="tedit" data-id="${t.id}">✏️ Reise bearbeiten</button><button data-act="fprice" data-id="${t.id}">✈️ Flugpreis suchen</button><button class="del" data-act="tdel" data-id="${t.id}">🗑️ Reise löschen</button></div>
   <ul class="hs">${hs.map(h => hotelRow(h, t, isBeach)).join("") || '<li class="empty">Noch keine Hotels</li>'}</ul>
   <button class="addbtn ed" data-act="hnew" data-id="${t.id}">＋ Hotel hinzufügen</button>
   ${t.note ? `<p class="tn">💡 ${esc(t.note)}</p>` : ""}
@@ -247,7 +247,7 @@ function group(r) {
   const isBeach = r.category === "strand";
   const ts = D.trips.filter(t => t.region_id === r.id).sort((a, b) => a.sort - b.sort);
   return `<div class="grp" data-region="${r.id}"><h2>${esc(r.name)} <small>${esc(r.sub || "")}</small>
-  <span class="ed"><button data-act="redit" data-id="${r.id}">✏️</button><button class="del" data-act="rdel" data-id="${r.id}">🗑️</button></span></h2>
+  <span class="ed"><button data-act="redit" data-id="${r.id}">✏️ Bearbeiten</button><button class="del" data-act="rdel" data-id="${r.id}">🗑️ Löschen</button></span></h2>
   ${ts.map(t => card(t, isBeach)).join("") || '<p class="empty">Noch keine Reisen</p>'}
   <button class="addbtn ed" data-act="tnew" data-id="${r.id}">＋ Reise / Ort in ${esc(r.name)}</button></div>`;
 }
