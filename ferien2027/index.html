@@ -182,9 +182,9 @@ const WD = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 const dt = s => { if (!s) return ""; const d = new Date(s + "T12:00:00"); return `${WD[d.getDay()]} ${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.`; };
 const nights = t => t.date_from && t.date_to ? Math.round((Date.parse(t.date_to) - Date.parse(t.date_from)) / 864e5) : 0;
 const dshort = iso => { if (!iso) return ""; const d = new Date(iso); return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.`; };
-const budget = () => Number(D.settings.budget || 2000);
+const budget = () => 2 * Number(D.settings.budget || 2000);
 const hotelsOf = t => D.hotels.filter(h => h.trip_id === t.id).sort((a, b) => (a.total2 ?? 1e9) - (b.total2 ?? 1e9));
-const pp = (h, t) => h.total2 == null ? null : Number(h.total2) / 2 + Number(t.flight_pp || 0);
+const pp = (h, t) => h.total2 == null ? null : Number(h.total2) + 2 * Number(t.flight_pp || 0);
 function bkLink(h, t) {
   try {
     const u = new URL(h.booking_url);
@@ -202,9 +202,9 @@ function hotelRow(h, t, isBeach) {
   const ai = /inclusive/i.test(ml);
   const mlh = ml ? `<span class="b ${ai ? "ai" : "bf"}">${ai ? "🍹" : "🍳"} ${esc(ml)}</span>` : "";
   const rat = h.rating ? `<span class="rt">${esc(h.rating)}</span>` : "";
-  const price = p == null ? `<b class="pend">Preis offen</b>` : `<b>${chf(p)}</b><small>p.P. total</small>`;
+  const price = p == null ? `<b class="pend">Preis offen</b>` : `<b>${chf(p)}</b><small>total für 2</small>`;
   const info = h.total2 == null ? (h.price_info ? esc(h.price_info) : "") :
-    `Hotel ${chf(h.total2 / 2)} p.P. · ${esc(h.src || "")}${h.price_checked_at ? " " + dshort(h.price_checked_at) : ""}`;
+    `Hotel ${chf(h.total2)} · ${esc(h.src || "")}${h.price_checked_at ? " " + dshort(h.price_checked_at) : ""}`;
   return `<li class="h${over ? " over" : ""}" data-h="${h.id}">
   <div class="h1"><span class="hnm">${esc(h.name)}</span><span class="hp">${price}</span></div>
   <div class="h2">${rat}<span class="st">${esc(h.stars || "")}</span>${mlh}<span class="hh">${info}</span></div>
@@ -223,14 +223,14 @@ function card(t, isBeach) {
   const n = nights(t);
   const d1 = t.flight_out || t.date_from, d2 = t.flight_back || t.date_to;
   const dates = d1 ? `${dt(d1)} – ${dt(d2)}${n ? ` · ${n} Nächte` : ""}` : "Daten offen";
-  const fp = t.flight_pp != null ? `Flug CHF ${chf(t.flight_pp)}${t.flight_pp_max ? "–" + chf(t.flight_pp_max) : ""} p.P. hin &amp; zurück` : "Flugpreis offen";
+  const fp = t.flight_pp != null ? `Flug CHF ${chf(t.flight_pp * 2)}${t.flight_pp_max ? "–" + chf(t.flight_pp_max * 2) : ""} für 2, hin &amp; zurück` : "Flugpreis offen";
   const extras = (t.extras || []).map(([k, v]) => `<li><b>${esc(k)}</b> ${esc(v)}</li>`).join("");
   const fa = t.flight_auto ? `<span>${esc(t.flight_auto)}${t.flight_url ? ` · <a href="${esc(t.flight_url)}" target="_blank" rel="noopener">ansehen</a>` : ""}</span>` : "";
   return `<details class="d" id="t-${t.id}" data-t="${t.id}">
 <summary>
   <span class="df">${esc(t.flag || "📍")}</span>
   <span class="dm"><b>${esc(t.title)}${t.reco ? '<span class="rc">★ Tipp</span>' : ""}</b><small>${esc(t.subtitle || "")}</small><small class="dt">${dates}</small></span>
-  <span class="dp ${cls}">${lo == null ? '<small>Preis</small><b class="pend">offen</b>' : `<small>ab CHF</small><b>${chf(lo)}</b><small>p.P.</small>`}</span>
+  <span class="dp ${cls}">${lo == null ? '<small>Preis</small><b class="pend">offen</b>' : `<small>ab CHF</small><b>${chf(lo)}</b><small>für 2</small>`}</span>
 </summary>
 <div class="db">
   <div class="fl">✈️ <div>${t.flight_info || ""}${fa}<span>${fp}</span></div></div>
@@ -271,12 +271,12 @@ function render() {
 </nav>
 <section class="panel" data-panel="strand">
   <div class="seg" role="group" aria-label="Region"><button data-f="all">Alle</button>${strand.map(r => `<button data-f="${r.id}">${esc(r.name)}</button>`).join("")}</div>
-  <p class="legend">Preise p.P. inkl. Flug · <span class="lg ok"></span> im Budget (≤ CHF ${chf(budget())}) · <span class="lg warn"></span> darüber</p>
+  <p class="legend">Preise total für 2 inkl. Flug · <span class="lg ok"></span> im Budget (≤ CHF ${chf(budget())}) · <span class="lg warn"></span> darüber</p>
   ${strand.map(group).join("")}
   <button class="addbtn ed" data-act="rnew" data-cat="strand">＋ Neue Region / Land</button>
 </section>
 <section class="panel" data-panel="stadt">
-  <p class="legend">Preise = Hotel + Flug pro Person</p>
+  <p class="legend">Preise total für 2 = Hotel + Flug</p>
   ${stadt.map(group).join("")}
   <button class="addbtn ed" data-act="rnew" data-cat="stadt">＋ Neue Kategorie</button>
 </section>
@@ -345,12 +345,13 @@ function tripForm(t, regionId) {
     { k: "subtitle", l: "Untertitel", ph: "z.B. Griechenland · Chania" },
     [{ k: "city", l: "Ort für Suche", ph: "z.B. Chania Crete", hint: "" }, { k: "airport", l: "Flughafen (IATA)", ph: "z.B. CHQ" }],
     [{ k: "date_from", l: "Hotel ab", type: "date" }, { k: "date_to", l: "Hotel bis", type: "date" }],
-    [{ k: "flight_pp", l: "Flugpreis p.P. (CHF)", type: "number", ph: "leer = suchen" }, { k: "flight_pp_max", l: "bis (optional)", type: "number" }],
+    [{ k: "flight_total", l: "Flugpreis total für 2 (CHF)", type: "number", ph: "leer = suchen" }, { k: "flight_total_max", l: "bis (optional)", type: "number" }],
     { k: "flight_info", l: "Flug-Info", type: "area", ph: "z.B. Edelweiss nonstop, Hin 10:00 → 14:00" },
     { k: "note", l: "Notiz / Tipp", type: "area" },
     { k: "reco", l: "★ Als Tipp markieren", type: "check" },
     { k: "search", l: "✈️ Flugpreis automatisch suchen (Google Flights)", type: "check", def: isNew || t.flight_pp == null },
-  ], { ...t, extras_txt: ex, search: undefined }, async o => {
+  ], { ...t, extras_txt: ex, search: undefined, flight_total: t.flight_pp != null ? Math.round(t.flight_pp * 2 * 100) / 100 : null, flight_total_max: t.flight_pp_max != null ? t.flight_pp_max * 2 : null }, async o => {
+    o.flight_pp = o.flight_total == null ? null : o.flight_total / 2; o.flight_pp_max = o.flight_total_max == null ? null : o.flight_total_max / 2; delete o.flight_total; delete o.flight_total_max;
     const extras = (o.extras_txt || "").split("\n").map(l => l.split(/:\s*/)).filter(a => a[0]).map(([k, ...v]) => [k.trim(), v.join(": ").trim()]);
     const search = o.search && (o.flight_pp == null || !isNew); delete o.search; delete o.extras_txt;
     const j = await api("save_trip", { trip: { ...o, extras, id: t.id }, search });
