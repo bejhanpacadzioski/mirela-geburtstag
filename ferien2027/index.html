@@ -352,7 +352,7 @@ function tripForm(t, regionId) {
     { k: "search", l: "✈️ Flugpreis automatisch suchen (Google Flights)", type: "check", def: isNew || t.flight_pp == null },
   ], { ...t, extras_txt: ex, search: undefined }, async o => {
     const extras = (o.extras_txt || "").split("\n").map(l => l.split(/:\s*/)).filter(a => a[0]).map(([k, ...v]) => [k.trim(), v.join(": ").trim()]);
-    const search = o.search && D.has_key && (o.flight_pp == null || !isNew); delete o.search; delete o.extras_txt;
+    const search = o.search && (o.flight_pp == null || !isNew); delete o.search; delete o.extras_txt;
     const j = await api("save_trip", { trip: { ...o, extras, id: t.id }, search });
     await reload();
     const id = j.trip.id; const d = document.getElementById("t-" + id); if (d) d.open = true;
@@ -378,7 +378,7 @@ function hotelForm(h, tripId) {
     { k: "food", l: "Essen (falls nicht All inclusive)", type: "area", ph: "Anzahl Restaurants, Preise p.P./Mahlzeit" },
     { k: "search", l: "🔄 Preis automatisch suchen (Google Hotels)", type: "check", def: isNew },
   ], { ...h, search: undefined }, async o => {
-    const search = o.search && D.has_key; delete o.search;
+    const search = o.search; delete o.search;
     if (o.total2 != null && (isNew || o.total2 !== Number(h.total2))) { o.src = o.src || "manuell"; o.price_status = "ok"; }
     if (o.booking_url === "") o.booking_url = null;
     if (o.maps_url === "") o.maps_url = null;
@@ -411,7 +411,6 @@ async function onClick(e) {
   if (a === "hedit") return hotelForm(D.hotels.find(h => h.id === id));
   if (a === "hdel") { const h = D.hotels.find(x => x.id === id); if (!confirm(`Hotel «${h.name}» löschen?`)) return; await api("delete_hotel", { id }); await reload(); return toast("🗑️ Gelöscht"); }
   if (a === "hprice" || a === "fprice") {
-    if (!D.has_key) return toast("⚠️ Preissuche inaktiv – SerpApi-Key fehlt noch", 4500);
     return busy(b, async () => {
       const j = await api(a === "hprice" ? "hotel_price" : "flight_price", { id });
       await reload();
