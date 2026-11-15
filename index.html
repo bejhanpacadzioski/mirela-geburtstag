@@ -186,7 +186,7 @@
         return '<li class="slot open'+fresh+'"><div class="time">'+timeHTML(s.time_label)+'</div><div class="card"'+cover+'><h2>'+esc(s.title)+'</h2>'+
           (s.place ? '<p class="place">'+esc(s.place)+'</p>' : '') + (s.note ? '<p class="note">'+esc(s.note)+'</p>' : '') +
           (s.location ? '<a class="loc" href="'+esc(mapLink(s.location))+'" target="_blank" rel="noopener">'+PIN+'<span>'+esc(s.location)+'</span></a>' : '') +
-          (s.link && /^https?:\/\//i.test(s.link) ? '<a class="slot-link" href="'+esc(s.link)+'" target="_blank" rel="noopener">'+esc(hostOf(s.link))+' ↗</a>' : '') +
+          (s.link && /^https?:\/\//i.test(s.link) ? '<a class="slot-link" href="'+esc(s.link)+'" target="_blank" rel="noopener">'+esc(slotLinkLabel(s.link))+' ↗</a>' : '') +
           filesHTML(files.filter(function(f){ return f.plan_id === s.id; })) + '</div></li>';
       }
       return '<li class="slot locked"><div class="time">'+timeHTML(s.time_label)+'</div><div class="card"><span class="lock">'+LOCK+'</span><div><h2>Verschlossen</h2></div></div></li>';
@@ -301,6 +301,14 @@
     return p(hh) + ':' + p(mm) + ':' + p(ss);
   }
   function imgUrl(path){ return sb.storage.from('option-images').getPublicUrl(path).data.publicUrl; }
+  var OWN_PAGES = { '/zmorge.html': 'Frühstückskarte ansehen' };
+  function slotLinkLabel(u){
+    try {
+      var url = new URL(u);
+      if (url.hostname.replace(/^www\./, '') === location.hostname.replace(/^www\./, '')) return OWN_PAGES[url.pathname] || 'Ansehen';
+    } catch (e) {}
+    return hostOf(u);
+  }
   function hostOf(u){ try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return 'Website'; } }
   function scheduleHTML(text){
     if (!text) return '';
