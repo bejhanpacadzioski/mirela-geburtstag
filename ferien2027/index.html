@@ -146,6 +146,20 @@ body.edit .addbtn.ed{display:block}
 #toast[hidden]{display:none}
 .spin{display:inline-block;width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:rot .7s linear infinite;vertical-align:-2px}
 @keyframes rot{to{transform:rotate(360deg)}}
+
+.bdg{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+.bdg:empty{display:none}
+.b.nw{background:#e8eefc;color:#2b4fb3}
+.b.ad{background:#fbe9f2;color:#a2336b}
+.b.sea{background:#e3f5ec;color:#1f7a4c}
+.b.wav{background:#fdf0e1;color:#a65b0f}
+.b.fc{background:#eef6e6;color:#4a7a1f}
+.hd{margin:8px 0 0;display:grid;gap:3px;font-size:13px;line-height:1.35}
+.hd div{display:grid;grid-template-columns:104px 1fr;gap:6px}
+.hd dt{color:var(--muted);font-weight:600;white-space:nowrap}
+.hd dd{margin:0;color:var(--ink)}
+.hd .warn dd{color:var(--warn)}
+@media(max-width:360px){.hd div{grid-template-columns:1fr}.hd dt{font-size:12px}}
 </style>
 </head>
 <body>
@@ -195,21 +209,38 @@ function bkLink(h, t) {
 function toast(m, ms = 3200) { const t = document.getElementById("toast"); t.innerHTML = m; t.hidden = false; clearTimeout(t._t); t._t = setTimeout(() => t.hidden = true, ms); }
 
 /* render */
+const SEA = { ruhig: ["sea", "🌊 Ruhiges Meer"], leicht: ["wav", "〰️ Leichte Wellen"], wellen: ["wav", "〰️ Wellen"] };
+function badges(h) {
+  const out = [];
+  const ml = h.meal || "", ai = /inclusive/i.test(ml);
+  if (ml) out.push(`<span class="b ${ai ? "ai" : "bf"}">${ai ? "🍹" : "🍳"} ${esc(ml)}</span>`);
+  const yo = Number(h.year_open) || 0, yr = Number(h.year_reno) || 0;
+  if (yo >= 2021 && yo >= yr) out.push(`<span class="b nw">🆕 Neu ${yo}</span>`);
+  else if (yr >= 2021) out.push(`<span class="b nw">🔨 Renoviert ${yr}</span>`);
+  if (h.adults_only) out.push(`<span class="b ad">💑 Adults only</span>`);
+  if (SEA[h.sea]) out.push(`<span class="b ${SEA[h.sea][0]}">${SEA[h.sea][1]}</span>`);
+  if (h.free_cancel) out.push(`<span class="b fc">✅ Gratis Storno</span>`);
+  return out.join("");
+}
+function details(h, isBeach) {
+  const rows = [["🏨", "Zustand", h.d_state], ["🛏️", "Zimmer", h.d_room], [isBeach ? "🏖️" : "📍", isBeach ? "Strand" : "Lage", h.d_loc],
+    ["🍽️", "Essen", h.d_food], ["✨", "Besonderes", h.d_extra], ["⚠️", "Achtung", h.d_warn], ["💳", "Angebot", h.d_offer]].filter(r => r[2]);
+  if (!rows.length) return (h.note ? `<p class="hn2">${esc(h.note)}</p>` : "") + (h.food ? `<p class="hf">🍽️ ${esc(h.food)}</p>` : "");
+  return `<dl class="hd">${rows.map(([i, l, v]) => `<div class="${l === "Achtung" ? "warn" : ""}"><dt>${i} ${l}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`;
+}
 function hotelRow(h, t, isBeach) {
   const p = pp(h, t);
   const over = isBeach && p != null && p > budget();
-  const ml = h.meal || "";
-  const ai = /inclusive/i.test(ml);
-  const mlh = ml ? `<span class="b ${ai ? "ai" : "bf"}">${ai ? "🍹" : "🍳"} ${esc(ml)}</span>` : "";
   const rat = h.rating ? `<span class="rt">${esc(h.rating)}</span>` : "";
   const price = p == null ? `<b class="pend">Preis offen</b>` : `<b>${chf(p)}</b><small>total für 2</small>`;
   const info = h.total2 == null ? (h.price_info ? esc(h.price_info) : "") :
-    `Hotel ${chf(h.total2)} · ${esc(h.src || "")}${h.price_checked_at ? " " + dshort(h.price_checked_at) : ""}`;
+    `Hotel ${chf(h.total2)}${h.d_offer ? "" : " · " + esc(h.src || "")}${h.price_checked_at ? " · " + dshort(h.price_checked_at) : ""}`;
   return `<li class="h${over ? " over" : ""}" data-h="${h.id}">
   <div class="h1"><span class="hnm">${esc(h.name)}</span><span class="hp">${price}</span></div>
-  <div class="h2">${rat}<span class="st">${esc(h.stars || "")}</span>${mlh}<span class="hh">${info}</span></div>
-  ${h.note ? `<p class="hn2">${esc(h.note)}</p>` : ""}${h.food ? `<p class="hf">🍽️ ${esc(h.food)}</p>` : ""}
-  ${h.src === "Google" && h.price_info ? `<p class="hn2" style="font-size:11.5px">Google-Treffer: ${esc(h.price_info)}</p>` : ""}
+  <div class="h2">${rat}<span class="st">${esc(h.stars || "")}</span><span class="hh">${info}</span></div>
+  <div class="bdg">${badges(h)}</div>
+  ${details(h, isBeach)}
+  ${/^Google/.test(h.src || "") && h.price_info ? `<p class="hn2" style="font-size:11.5px">Google-Treffer: ${esc(h.price_info)}</p>` : ""}
   <div class="hl"><a href="${esc(bkLink(h, t))}" target="_blank" rel="noopener">🛏️ Booking</a><a href="${esc(h.maps_url || "#")}" target="_blank" rel="noopener">📍 Karte</a></div>
   <div class="ed edrow"><button data-act="hedit" data-id="${h.id}">✏️ Bearbeiten</button><button data-act="hprice" data-id="${h.id}">🔄 Preis suchen</button><button class="del" data-act="hdel" data-id="${h.id}">🗑️ Löschen</button></div>
 </li>`;
@@ -369,14 +400,24 @@ function tripForm(t, regionId) {
 function hotelForm(h, tripId) {
   const isNew = !h;
   const t = D.trips.find(x => x.id === (h?.trip_id || tripId));
-  h = h || { trip_id: tripId, meal: D.regions.find(r => r.id === t.region_id)?.category === "strand" ? "All inclusive" : "", sort: 0 };
+  const isBeach = D.regions.find(r => r.id === t.region_id)?.category === "strand";
+  h = h || { trip_id: tripId, meal: isBeach ? "All inclusive" : "", sort: 0 };
   openForm(isNew ? `Hotel hinzufügen · ${esc(t.title)}` : "Hotel bearbeiten", [
     { k: "name", l: "Hotelname *", ph: "z.B. Iberostar Selection …", req: true },
     [{ k: "stars", l: "Sterne", type: "select", opts: STARS }, { k: "rating", l: "Bewertung", ph: "z.B. 8.7" }],
     { k: "meal", l: "Verpflegung", type: "select", opts: MEALS.map(m => [m, m || "–"]) },
     { k: "total2", l: `Preis total für 2 Personen (CHF, ${nights(t)} Nächte)`, type: "number", ph: "leer = automatisch suchen" },
-    { k: "note", l: "Beschreibung", type: "area", ph: "Strand, Renovation, Essen …" },
-    { k: "food", l: "Essen (falls nicht All inclusive)", type: "area", ph: "Anzahl Restaurants, Preise p.P./Mahlzeit" },
+    [{ k: "year_open", l: "Eröffnet (Jahr)", type: "number", ph: "z.B. 2022" }, { k: "year_reno", l: "Renoviert (Jahr)", type: "number", ph: "z.B. 2024" }],
+    { k: "sea", l: isBeach ? "Meer / Baden" : "Meer", type: "select", opts: [["", "–"], ["ruhig", "🌊 Ruhiges Meer"], ["leicht", "〰️ Leichte Wellen"], ["wellen", "〰️ Wellen"]] },
+    { k: "adults_only", l: "💑 Adults only", type: "check" },
+    { k: "free_cancel", l: "✅ Gratis Storno", type: "check" },
+    { k: "d_state", l: "🏨 Zustand", ph: "z.B. Komplett renoviert, Wiedereröffnung 2025" },
+    { k: "d_room", l: "🛏️ Zimmer", ph: "z.B. Juniorsuite mit Jacuzzi" },
+    { k: "d_loc", l: isBeach ? "🏖️ Strand" : "📍 Lage", ph: isBeach ? "z.B. Sandstrand Bávaro, gut zum Baden" : "z.B. Altstadt, nahe Hagia Sophia" },
+    { k: "d_food", l: "🍽️ Essen", ph: "z.B. 7 Restaurants · sehr gelobt / gelobt / gemischt / schwach" },
+    { k: "d_extra", l: "✨ Besonderes", ph: "z.B. Rooftop-Pool" },
+    { k: "d_warn", l: "⚠️ Achtung", ph: "z.B. Wellen, auf Flagge achten" },
+    { k: "d_offer", l: "💳 Angebot", ph: "z.B. trivago · Junior Suite · gratis Storno bis 29.03." },
     { k: "search", l: "🔄 Preis automatisch suchen (Google Hotels)", type: "check", def: isNew },
   ], { ...h, search: undefined }, async o => {
     const search = o.search; delete o.search;
@@ -387,7 +428,8 @@ function hotelForm(h, tripId) {
     await reload();
     toast(j.price ? (j.price.ok ? `✓ Gespeichert · Preis gefunden: CHF ${chf(j.price.hotel.total2)} für 2` : `✓ Gespeichert · ${esc(j.price.error)}`) : "✓ Gespeichert · Booking- & Karten-Link erstellt", 5000);
   }, [
-    { k: "src", l: "Quelle", ph: "Booking / Trivago / manuell" },
+    { k: "src", l: "Quelle (kurz)", ph: "Booking / Trivago / manuell" },
+    { k: "note", l: "Alte Beschreibung (nur falls keine Felder oben)", type: "area" },
     { k: "booking_url", l: "Booking-Link", hint: "Leer lassen = automatisch erstellen" },
     { k: "maps_url", l: "Karten-Link", hint: "Leer lassen = automatisch erstellen" },
   ]);
