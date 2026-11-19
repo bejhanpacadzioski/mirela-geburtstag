@@ -178,8 +178,8 @@ body.edit .addbtn.ed{display:block}
 <script>
 const API = "https://cialuwwynrruydkcrkbe.supabase.co/functions/v1/ferien";
 const KEY = "ferien2027-pin";
-const ss = (k, v) => { try { v == null ? sessionStorage.removeItem(k) : sessionStorage.setItem(k, v) } catch (_) {} };
-const sg = k => { try { return sessionStorage.getItem(k) } catch (_) { return null } };
+const ss = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v) } catch (_) {} };
+const sg = k => { try { return localStorage.getItem(k) || sessionStorage.getItem(k) } catch (_) { return null } };
 let PIN = null, D = null, EDIT = false;
 
 async function api(action, body = {}) {
@@ -471,13 +471,12 @@ async function tryPin(v, silent) {
     document.getElementById("lock").remove(); document.getElementById("app").hidden = false; render();
   } catch (e) {
     if (!silent) { err.textContent = e.status === 401 ? "Falscher PIN" : e.message; f.classList.remove("shake"); void f.offsetWidth; f.classList.add("shake"); pin.value = ""; pin.focus(); }
-    ss(KEY, null);
+    if (e.status === 401) ss(KEY, null);
   } finally { go.disabled = false; }
 }
 f.onsubmit = e => { e.preventDefault(); if (pin.value) tryPin(pin.value); };
 pin.oninput = () => { pin.value = pin.value.replace(/\D/g, ""); if (pin.value.length === 4) tryPin(pin.value); };
 const saved = sg(KEY); if (saved) tryPin(saved, true);
-
 </script>
 </body>
 </html>
