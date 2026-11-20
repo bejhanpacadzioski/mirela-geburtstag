@@ -537,3 +537,7 @@ canvas.confetti.on{display:block}
 .qa-answer{margin-left:34px;padding:10px 12px;border-radius:8px;background:var(--gold-soft);display:flex;flex-direction:column;gap:2px}
 .qa-answer p{margin:0;font-family:var(--display);font-size:19px;white-space:pre-line;overflow-wrap:anywhere}
 .seg-opt input{width:auto;min-height:0;flex:none;margin:0;padding:0}
+
+.online-row{display:flex;align-items:center;gap:10px;margin-top:12px}
+.online-row .online-name{flex:1;font-weight:600}
+.online-row button{min-width:132px}

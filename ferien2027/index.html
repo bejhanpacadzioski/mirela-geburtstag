@@ -470,9 +470,16 @@ async function tryPin(v, silent) {
     D = await api("load"); ss(KEY, v);
     document.getElementById("lock").remove(); document.getElementById("app").hidden = false; render();
   } catch (e) {
+    if (e.status === 503) { showOffline(v); return; }
+    pin.hidden = go.hidden = false; f.querySelector("p").textContent = "Bitte PIN eingeben";
     if (!silent) { err.textContent = e.status === 401 ? "Falscher PIN" : e.message; f.classList.remove("shake"); void f.offsetWidth; f.classList.add("shake"); pin.value = ""; pin.focus(); }
     if (e.status === 401) ss(KEY, null);
   } finally { go.disabled = false; }
+}
+function showOffline(v) {
+  pin.hidden = true; go.hidden = true; err.textContent = "";
+  f.querySelector("p").textContent = "Die Seite ist gerade offline. Schau später wieder vorbei.";
+  clearTimeout(showOffline.t); showOffline.t = setTimeout(() => tryPin(v, true), 30000);
 }
 f.onsubmit = e => { e.preventDefault(); if (pin.value) tryPin(pin.value); };
 pin.oninput = () => { pin.value = pin.value.replace(/\D/g, ""); if (pin.value.length === 4) tryPin(pin.value); };

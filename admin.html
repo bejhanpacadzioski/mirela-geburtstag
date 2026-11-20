@@ -7,7 +7,7 @@
 <title>Steuerung · Mirelas Tag</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=49">
+<link rel="stylesheet" href="style.css?v=50">
 </head>
 <body>
 <main class="wrap">
@@ -27,6 +27,12 @@
   </form>
 
   <section class="panel" id="panel" hidden>
+    <section class="extra" id="onlineBox">
+      <div class="extra-head"><h2>Seiten online / offline</h2></div>
+      <div class="online-row"><span class="online-name">Geburtstagsseite</span><span class="chip" id="onMainChip">–</span><button type="button" id="onMainBtn">–</button></div>
+      <div class="online-row"><span class="online-name">Ferien 2027</span><span class="chip" id="onFerienChip">–</span><button type="button" id="onFerienBtn">–</button></div>
+      <p class="switch-hint">Offline sehen Besucher nur «Die Seite ist gerade offline». Inhalte und gespeicherte PINs bleiben erhalten, nach dem Einschalten ist alles sofort wieder da.</p>
+    </section>
     <section class="extra" id="choiceBox">
       <div class="extra-head"><h2>Mirelas Wahl</h2><span class="chip" id="choiceChip">–</span></div>
       <label class="check"><input type="checkbox" id="choiceHidden"> Bereich «Du gestaltest mit» (beide Schritte) bei Mirela ganz ausblenden</label>
@@ -188,6 +194,7 @@
 (function(){
   var sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
   var items = [], files = [], photos = [], extras = {}, thumbs = {}, letterDirty = false, busy = false, editing = null, confirmDel = null;
+  var siteOn = { site_online: true, ferien_online: true };
   var evState = {}, evOptions = [], evImages = [], evTextDirty = false, evOptDirty = false, hideLocked = false, albumShown = false, variant = 'pilatus', filter = 'active', textDirty = false, choiceTextDirty = false, optImages = [], options = [], choiceState = {}, optDirty = false;
   var VLABEL = { beide: 'Alle', pilatus: 'Pilatus', schiff: 'Schifffahrt', escape: 'Escape Room' };
   var PROGRAMS = ['pilatus', 'schiff', 'escape'];
@@ -411,7 +418,27 @@
     });
   }
 
+  function renderOnline(){
+    [['site_online', 'onMain'], ['ferien_online', 'onFerien']].forEach(function(x){
+      var on = siteOn[x[0]];
+      $(x[1] + 'Chip').textContent = on ? 'Online' : 'Offline';
+      $(x[1] + 'Chip').classList.toggle('on', on);
+      $(x[1] + 'Btn').textContent = on ? 'Offline nehmen' : 'Online stellen';
+      $(x[1] + 'Btn').className = on ? 'ghost' : '';
+      $(x[1] + 'Btn').disabled = busy;
+    });
+  }
+  function toggleSite(key, label){
+    if (busy) return;
+    var next = siteOn[key] ? 'false' : 'true';
+    run([function(){ return sb.from('settings').update({ value: next }).eq('key', key).select('key'); }],
+        label + (next === 'true' ? ' ist wieder online.' : ' ist jetzt offline.'));
+  }
+  $('onMainBtn').addEventListener('click', function(){ toggleSite('site_online', 'Die Geburtstagsseite'); });
+  $('onFerienBtn').addEventListener('click', function(){ toggleSite('ferien_online', 'Die Ferienseite'); });
+
   function renderExtras(){
+    renderOnline();
     var l = extras.letter || {}, a = extras.album || {};
     if (!letterDirty) { $('l-title').value = l.title || ''; $('l-body').value = l.body || ''; }
     $('letterChip').textContent = l.revealed ? 'Sichtbar' : 'Gesperrt';
@@ -502,6 +529,7 @@
     if (!r2.error && r2.data) {
       r2.data.forEach(function(s){
         if (s.key === 'variant') variant = s.value;
+        if (s.key === 'site_online' || s.key === 'ferien_online') siteOn[s.key] = s.value !== 'false';
         if (s.key === 'choice') choiceState.choice = s.value || null;
         if (s.key === 'choice_at') choiceState.choice_at = s.value || null;
         if (s.key === 'choice_open_at') choiceState.open_at = s.value || null;

@@ -7,7 +7,7 @@
 <title>Alles Gute, Mirela</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=49">
+<link rel="stylesheet" href="style.css?v=50">
 </head>
 <body>
 <div class="lock-screen" id="lockScreen" hidden>
@@ -32,6 +32,13 @@
     </div>
     <p class="pin-hint" id="pinHint" hidden></p>
   </form>
+</div>
+<div class="lock-screen" id="offScreen" hidden>
+  <div class="lock-card">
+    <p class="eyebrow">Kurze Pause</p>
+    <h1>Gleich zurück</h1>
+    <p class="lede">Die Seite ist gerade offline. Schau etwas später wieder vorbei.</p>
+  </div>
 </div>
 <main class="wrap" id="mainWrap" hidden>
   <header>
@@ -850,6 +857,8 @@
   async function load(){
     if (!CODE) { showLock(); return; }
     var res = await sb.rpc('public_bundle', { p_pin: CODE });
+    if (!res.error && res.data && res.data.error === 'offline') { showOffline(); return; }
+    $('offScreen').hidden = true;
     if (!res.error && res.data && res.data.error === 'pin') { lockAgain(); return; }
     var d = (!res.error && res.data) || {};
     var err = res.error || null;
@@ -1051,10 +1060,15 @@
     $('pinHint').hidden = true;
     $('pinInput').value = '';
   }
+  function showOffline(){
+    $('mainWrap').hidden = true; $('lockScreen').hidden = true; $('offScreen').hidden = false;
+  }
   async function showLock(){
     $('mainWrap').hidden = true;
-    $('lockScreen').hidden = false;
     var both = await Promise.all([sb.rpc('lock_photo'), sb.rpc('lock_step', { p_codes: solved })]);
+    if (!both[1].error && both[1].data && both[1].data.offline) { showOffline(); return; }
+    $('offScreen').hidden = true;
+    $('lockScreen').hidden = false;
     photoTask = (both[0] && !both[0].error && both[0].data) || null;
     var res = both[1];
     if (res.error) { $('pinMsg').textContent = /Zu viele/.test(res.error.message || '') ? res.error.message : 'Gerade keine Verbindung. Versuch es gleich nochmals.'; return; }
@@ -1092,6 +1106,7 @@
     trying = false; $('pinGo').disabled = false;
     if (res.error) { $('pinMsg').textContent = /Zu viele/.test(res.error.message || '') ? res.error.message : 'Gerade keine Verbindung. Versuch es gleich nochmals.'; return; }
     var d = res.data || {};
+    if (d.offline) { showOffline(); return; }
     if (d.wrong) {
       $('pinMsg').textContent = 'Das stimmt leider nicht. Versuch es nochmals.';
       var card = $('lockForm'); card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake');
