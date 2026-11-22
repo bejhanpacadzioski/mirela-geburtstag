@@ -7,7 +7,7 @@
 <title>Alles Gute, Mirela</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=50">
+<link rel="stylesheet" href="style.css?v=51">
 </head>
 <body>
 <div class="lock-screen" id="lockScreen" hidden>
@@ -932,10 +932,10 @@
   async function loadWeather(){
     var box = $('weather');
     weatherLoadedFor = BIRTHDAY;
-    // Erst 4 Tage vor dem Tag einblenden
+    // Erst 5 Tage vor dem Tag einblenden
     var today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Zurich' });
     var daysLeft = Math.round((Date.parse(BIRTHDAY + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 86400000);
-    if (daysLeft > 4) { box.hidden = true; box.innerHTML = ''; return; }
+    if (daysLeft > 5) { box.hidden = true; box.innerHTML = ''; return; }
     var label = 'Wetter in Luzern am ' + shortDate(BIRTHDAY);
     try {
       var url = 'https://api.open-meteo.com/v1/forecast?latitude=47.05&longitude=8.31' +
