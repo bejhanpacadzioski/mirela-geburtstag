@@ -7,7 +7,7 @@
 <title>Alles Gute, Mirela</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=52">
+<link rel="stylesheet" href="style.css?v=53">
 </head>
 <body>
 <div class="lock-screen" id="lockScreen" hidden>
@@ -700,6 +700,7 @@
       if (n === 0) { d.other = true; d.opt = 0; } else { d.other = false; d.opt = n; }
       renderQuiz(quizList);
       if (n > 0 && /matcha/i.test(qOpts(q)[n - 1] || '')) fakeCrash();
+      else if (n > 0 && /^espresso$/i.test((qOpts(q)[n - 1] || '').trim())) espressoParty();
       if (n === 0) { var ta = $('quiz').querySelector('.quiz-text'); if (ta) ta.focus(); }
       return;
     }
@@ -778,6 +779,38 @@
         }
       }, 260);
     }, 650);
+  }
+
+
+  // Gegenstück: Espresso wird gefeiert
+  var partying = false;
+  function espressoParty(){
+    if (partying || crashing) return; partying = true;
+    try { if (navigator.vibrate) navigator.vibrate([30, 40, 30]); } catch (e) {}
+    var o = document.createElement('div');
+    o.className = 'esp';
+    var BEAN = '<svg viewBox="0 0 20 28" aria-hidden="true"><ellipse cx="10" cy="14" rx="9" ry="13" fill="#5a3522"/><path d="M10 2c-4 6 4 18 0 24" stroke="#2c180e" stroke-width="2" fill="none" stroke-linecap="round"/></svg>';
+    var beans = '';
+    for (var i = 0; i < 26; i++) {
+      var left = Math.random() * 100, delay = Math.random() * 0.9, dur = 1.6 + Math.random() * 1.4, size = 14 + Math.random() * 14, rot = Math.round(Math.random() * 720 - 360);
+      beans += '<span class="esp-bean" style="left:'+left+'%;width:'+size+'px;animation-delay:'+delay.toFixed(2)+'s;animation-duration:'+dur.toFixed(2)+'s;--r:'+rot+'deg">'+BEAN+'</span>';
+    }
+    o.innerHTML = beans +
+      '<div class="esp-card" role="status">'+
+        '<svg class="esp-cup" viewBox="0 0 64 56" aria-hidden="true">'+
+          '<path class="esp-steam" d="M24 14c-3-4 3-6 0-11M32 14c-3-4 3-6 0-11M40 14c-3-4 3-6 0-11" stroke="#c9a27e" stroke-width="2.4" fill="none" stroke-linecap="round"/>'+
+          '<path d="M12 20h36v14a14 14 0 0 1-14 14h-8a14 14 0 0 1-14-14z" fill="#fff" stroke="#5a3522" stroke-width="2.4"/>'+
+          '<path d="M48 24h4a6 6 0 0 1 0 12h-5" fill="none" stroke="#5a3522" stroke-width="2.4"/>'+
+          '<ellipse cx="30" cy="21" rx="16" ry="3" fill="#7a4a2c"/>'+
+          '<path d="M6 52h48" stroke="#5a3522" stroke-width="2.4" stroke-linecap="round"/></svg>'+
+        '<p class="esp-kicker">Ottima scelta!</p>'+
+        '<h2>Ein Espresso, so wie es sich gehört.</h2>'+
+        '<p>Kurz, stark, mit Crema. Wir verstehen uns.</p>'+
+      '</div>';
+    document.body.appendChild(o);
+    function close(){ if (!o.parentNode) return; o.classList.add('esp-out'); setTimeout(function(){ o.remove(); partying = false; }, 400); }
+    o.addEventListener('click', close);
+    setTimeout(close, 3800);
   }
 
   function confetti(){

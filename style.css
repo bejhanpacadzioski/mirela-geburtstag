@@ -559,3 +559,19 @@ canvas.confetti.on{display:block}
 @keyframes crashIn{from{opacity:0;transform:scale(1.04)}to{opacity:1;transform:none}}
 @keyframes crashScan{from{background-position:0 0}to{background-position:0 40px}}
 @media (prefers-reduced-motion:reduce){.crash-shake body{animation:none}.crash-glitch{animation:none}}
+/* Espresso-Feier */
+.esp{position:fixed;inset:0;z-index:9998;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(44,24,14,.35);animation:espIn .25s ease both;overflow:hidden;cursor:pointer}
+.esp-out{opacity:0;transition:opacity .4s}
+.esp-bean{position:absolute;top:-40px;display:block;animation:espFall linear both}
+.esp-bean svg{width:100%;height:auto;display:block}
+@keyframes espFall{to{transform:translateY(calc(100vh + 80px)) rotate(var(--r))}}
+.esp-card{position:relative;max-width:340px;background:#fbf4ec;color:#2c180e;border-radius:18px;padding:24px 22px 22px;text-align:center;box-shadow:0 18px 50px rgba(44,24,14,.35);animation:espPop .5s cubic-bezier(.2,1.4,.4,1) both}
+.esp-cup{width:72px;height:auto;display:block;margin:0 auto 10px}
+.esp-steam{animation:espSteam 1.6s ease-in-out infinite}
+@keyframes espSteam{0%,100%{opacity:.35;transform:translateY(2px)}50%{opacity:1;transform:translateY(-2px)}}
+.esp-kicker{margin:0;font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#a0623b}
+.esp-card h2{margin:6px 0 6px;font-family:var(--display);font-weight:400;font-size:24px;line-height:1.2;color:#2c180e}
+.esp-card p:last-child{margin:0;font-size:15px;color:#6b4a35}
+@keyframes espIn{from{opacity:0}to{opacity:1}}
+@keyframes espPop{from{opacity:0;transform:scale(.7) translateY(20px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.esp-bean{display:none}.esp-steam{animation:none}}
