@@ -7,7 +7,7 @@
 <title>Alles Gute, Mirela</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=51">
+<link rel="stylesheet" href="style.css?v=52">
 </head>
 <body>
 <div class="lock-screen" id="lockScreen" hidden>
@@ -699,6 +699,7 @@
       var d = draftOf(q), n = +opt.dataset.n;
       if (n === 0) { d.other = true; d.opt = 0; } else { d.other = false; d.opt = n; }
       renderQuiz(quizList);
+      if (n > 0 && /matcha/i.test(qOpts(q)[n - 1] || '')) fakeCrash();
       if (n === 0) { var ta = $('quiz').querySelector('.quiz-text'); if (ta) ta.focus(); }
       return;
     }
@@ -736,6 +737,48 @@
       kittens(4);
     }
   });
+
+
+  // Kleiner Streich: Matcha bringt die Seite «zum Absturz»
+  var crashing = false;
+  function fakeCrash(){
+    if (crashing) return; crashing = true;
+    var root = document.documentElement;
+    root.classList.add('crash-shake');
+    try { if (navigator.vibrate) navigator.vibrate([80, 40, 120, 40, 200]); } catch (e) {}
+    setTimeout(function(){
+      root.classList.remove('crash-shake');
+      var o = document.createElement('div');
+      o.className = 'crash';
+      o.setAttribute('role', 'alertdialog');
+      o.innerHTML = '<div class="crash-glitch" aria-hidden="true"></div>'+
+        '<div class="crash-box"><p class="crash-face">:(</p>'+
+        '<h2>Die Seite ist abgestürzt.</h2>'+
+        '<p>Fehlercode: <b>MATCHA_IST_KEIN_KAFFEE</b></p>'+
+        '<p class="crash-small">Es wurde ein grünes Getränk in einer Kaffee-Frage erkannt. Das System konnte damit nicht umgehen.</p>'+
+        '<div class="crash-bar"><span></span></div><p class="crash-small" id="crashTxt">Neustart wird vorbereitet … 0%</p></div>';
+      document.body.appendChild(o);
+      var p = 0, txt = o.querySelector('#crashTxt'), bar = o.querySelector('.crash-bar span');
+      var t = setInterval(function(){
+        p = Math.min(100, p + 7 + Math.round(Math.random() * 12));
+        bar.style.width = p + '%';
+        txt.textContent = (p < 100 ? 'Neustart wird vorbereitet … ' : 'Fertig … ') + p + '%';
+        if (p >= 100) {
+          clearInterval(t);
+          setTimeout(function(){
+            o.querySelector('.crash-box').innerHTML = '<p class="crash-face">😜</p><h2>Spass!</h2><p>Natürlich darfst du Matcha wählen. Ich hab\'s ja gewusst.</p><button type="button" class="crash-ok">Na gut, verziehen</button>';
+            o.classList.add('crash-done');
+            o.querySelector('.crash-ok').addEventListener('click', function(){
+              o.classList.add('crash-out');
+              setTimeout(function(){ o.remove(); crashing = false; }, 350);
+              kittens(6);
+            });
+            o.querySelector('.crash-ok').focus();
+          }, 500);
+        }
+      }, 260);
+    }, 650);
+  }
 
   function confetti(){
     if (reduceMotion) return;

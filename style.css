@@ -541,3 +541,21 @@ canvas.confetti.on{display:block}
 .online-row{display:flex;align-items:center;gap:10px;margin-top:12px}
 .online-row .online-name{flex:1;font-weight:600}
 .online-row button{min-width:132px}
+/* Matcha-Streich */
+@keyframes crashShake{0%,100%{transform:none}10%{transform:translate(-6px,3px) rotate(-.6deg)}20%{transform:translate(7px,-4px) rotate(.8deg)}30%{transform:translate(-8px,2px) skewX(3deg)}40%{transform:translate(5px,5px) rotate(-1deg)}50%{transform:translate(-4px,-6px) skewX(-4deg);filter:hue-rotate(90deg) saturate(2)}60%{transform:translate(8px,2px)}70%{transform:translate(-6px,-2px) rotate(1deg);filter:invert(1)}80%{transform:translate(4px,4px)}90%{transform:translate(-2px,-3px)}}
+.crash-shake body{animation:crashShake .65s steps(2,end) both}
+.crash{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;background:#1f5f3a;color:#fff;animation:crashIn .12s steps(2) both;font-family:var(--body,system-ui)}
+.crash-glitch{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,.06) 0 2px,transparent 2px 4px);animation:crashScan 1.2s linear infinite}
+.crash-box{position:relative;max-width:420px;display:flex;flex-direction:column;gap:12px}
+.crash-box h2{margin:0;font-family:var(--display);font-weight:400;font-size:30px;line-height:1.15;color:#fff}
+.crash-box p{margin:0;font-size:16px;line-height:1.5;color:#e6f3ea}
+.crash-face{font-size:72px!important;line-height:1!important;margin-bottom:8px!important;color:#fff!important}
+.crash-small{font-size:14px!important;opacity:.85}
+.crash-bar{height:8px;border-radius:4px;background:rgba(255,255,255,.2);overflow:hidden;margin-top:8px}
+.crash-bar span{display:block;height:100%;width:0;background:#b8f0c8;transition:width .25s}
+.crash-ok{align-self:flex-start;margin-top:8px;background:#fff;color:#1f5f3a;border:0;min-height:48px;padding:0 22px;border-radius:10px;font-weight:600;font-size:16px;cursor:pointer}
+.crash-done{background:#2a6f47}
+.crash-out{opacity:0;transition:opacity .35s}
+@keyframes crashIn{from{opacity:0;transform:scale(1.04)}to{opacity:1;transform:none}}
+@keyframes crashScan{from{background-position:0 0}to{background-position:0 40px}}
+@media (prefers-reduced-motion:reduce){.crash-shake body{animation:none}.crash-glitch{animation:none}}
