@@ -7,7 +7,7 @@
 <title>Alles Gute, Mirela</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=53">
+<link rel="stylesheet" href="style.css?v=54">
 </head>
 <body>
 <div class="lock-screen" id="lockScreen" hidden>
@@ -699,7 +699,7 @@
       var d = draftOf(q), n = +opt.dataset.n;
       if (n === 0) { d.other = true; d.opt = 0; } else { d.other = false; d.opt = n; }
       renderQuiz(quizList);
-      if (n > 0 && /matcha/i.test(qOpts(q)[n - 1] || '')) fakeCrash();
+      if (n > 0 && /matcha/i.test(qOpts(q)[n - 1] || '')) fakeCrash(q);
       else if (n > 0 && /^espresso$/i.test((qOpts(q)[n - 1] || '').trim())) espressoParty();
       if (n === 0) { var ta = $('quiz').querySelector('.quiz-text'); if (ta) ta.focus(); }
       return;
@@ -742,7 +742,7 @@
 
   // Kleiner Streich: Matcha bringt die Seite «zum Absturz»
   var crashing = false;
-  function fakeCrash(){
+  function fakeCrash(q){
     if (crashing) return; crashing = true;
     var root = document.documentElement;
     root.classList.add('crash-shake');
@@ -767,12 +767,12 @@
         if (p >= 100) {
           clearInterval(t);
           setTimeout(function(){
-            o.querySelector('.crash-box').innerHTML = '<p class="crash-face">😜</p><h2>Spass!</h2><p>Natürlich darfst du Matcha wählen. Ich hab\'s ja gewusst.</p><button type="button" class="crash-ok">Na gut, verziehen</button>';
+            o.querySelector('.crash-box').innerHTML = '<p class="crash-face">😜</p><h2>Neustart erfolgreich.</h2><p>Matcha wurde aus Sicherheitsgründen abgewählt. Es ist und bleibt kein Kaffee, also leider keine Option.</p><button type="button" class="crash-ok">Na gut, dann halt Kaffee</button>';
             o.classList.add('crash-done');
             o.querySelector('.crash-ok').addEventListener('click', function(){
               o.classList.add('crash-out');
               setTimeout(function(){ o.remove(); crashing = false; }, 350);
-              kittens(6);
+              if (q && quizDraft[q.id]) { quizDraft[q.id].opt = 0; quizDraft[q.id].other = false; renderQuiz(quizList); }
             });
             o.querySelector('.crash-ok').focus();
           }, 500);
