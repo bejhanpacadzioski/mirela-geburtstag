@@ -767,7 +767,7 @@
         if (p >= 100) {
           clearInterval(t);
           setTimeout(function(){
-            o.querySelector('.crash-box').innerHTML = '<p class="crash-face">😜</p><h2>Neustart erfolgreich.</h2><p>Matcha wurde aus Sicherheitsgründen abgewählt. Es ist und bleibt kein Kaffee, also leider keine Option.</p><button type="button" class="crash-ok">Na gut, dann halt Kaffee</button>';
+            o.querySelector('.crash-box').innerHTML = '<h2>Neustart erfolgreich.</h2><p>Matcha wurde aus Sicherheitsgründen abgewählt. Es ist und bleibt kein Kaffee, also leider keine Option.</p><button type="button" class="crash-ok">Na gut, dann halt Kaffee</button>';
             o.classList.add('crash-done');
             o.querySelector('.crash-ok').addEventListener('click', function(){
               o.classList.add('crash-out');
