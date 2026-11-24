@@ -7,7 +7,7 @@
 <title>Alles Gute, Mirela</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=54">
+<link rel="stylesheet" href="style.css?v=55">
 </head>
 <body>
 <div class="lock-screen" id="lockScreen" hidden>
@@ -626,14 +626,15 @@
     if (!quizList.length) { box.hidden = true; box.innerHTML = ''; return; }
     var answered = quizList.filter(function(q){ return q.answer; });
     var open = quizList.filter(function(q){ return !q.answer; });
-    var cur = (quizShow && quizList.find(function(q){ return q.id === quizShow; })) || open[0] || null;
-    var dots = quizList.map(function(q){ return '<span class="'+(q.answer ? 'ok' : '')+(cur && q.id === cur.id ? ' now' : '')+'"></span>'; }).join('');
+    // Alle offenen Fragen gleichzeitig zeigen, dazu eine gerade bearbeitete oder beantwortete
+    var cards = quizList.filter(function(q){ return !q.answer || q.id === quizShow || q.id === quizThanks; });
+    var dots = quizList.map(function(q){ return '<span class="'+(q.answer ? 'ok' : '')+(cards.indexOf(q) > -1 && !q.answer ? ' now' : '')+'"></span>'; }).join('');
     var stat = answered.length === quizList.length
       ? 'Alle <b>'+answered.length+'</b> beantwortet'
       : '<b>'+answered.length+'</b> von '+quizList.length+' beantwortet';
     var html = '<div class="quiz-head"><p class="eyebrow">Ich will\'s wissen</p><h2>Fragen an dich</h2>'+
       '<div class="quiz-stat"><p>'+stat+'</p><div class="quiz-dots" aria-hidden="true">'+dots+'</div></div></div>';
-    if (cur) html += quizThanks === cur.id ? thanksCard(cur) : quizCard(cur, quizList.indexOf(cur) + 1);
+    if (cards.length) html += '<div class="quiz-cards">' + cards.map(function(q){ return quizThanks === q.id ? thanksCard(q) : quizCard(q, quizList.indexOf(q) + 1); }).join('') + '</div>';
     else html += '<p class="quiz-done">Danke für alle Antworten! Vielleicht kommen bis zu deinem Geburtstag noch ein paar Fragen dazu.</p>';
     if (answered.length) {
       html += '<details class="quiz-past"><summary>Deine Antworten ('+answered.length+')</summary><ol>'+
@@ -644,10 +645,10 @@
         }).join('')+'</ol></details>';
     }
     var past = box.querySelector('.quiz-past'), wasOpen = past && past.open;
-    var ta = box.querySelector('.quiz-text'), hadFocus = ta && document.activeElement === ta;
+    var act = document.activeElement, focusId = act && act.classList && act.classList.contains('quiz-text') && box.contains(act) ? act.closest('.quiz-card').dataset.id : null;
     box.innerHTML = html; box.hidden = false;
     if (wasOpen && box.querySelector('.quiz-past')) box.querySelector('.quiz-past').open = true;
-    if (hadFocus && box.querySelector('.quiz-text')) { var t2 = box.querySelector('.quiz-text'); t2.focus(); t2.setSelectionRange(t2.value.length, t2.value.length); }
+    if (focusId) { var t2 = box.querySelector('.quiz-card[data-id="'+focusId+'"] .quiz-text'); if (t2) { t2.focus(); t2.setSelectionRange(t2.value.length, t2.value.length); } }
   }
   function draftOf(q){
     if (!quizDraft[q.id]) {
@@ -680,8 +681,8 @@
   }
   function thanksCard(q){
     var more = quizList.some(function(x){ return !x.answer; });
-    return '<div class="quiz-card quiz-thanks"><p class="quiz-v">Danke!</p><p class="quiz-pq">'+esc(q.question)+'</p><p class="quiz-mine">'+esc(q.answer)+'</p>'+
-      '<button type="button" class="quiz-next">'+(more ? 'Nächste Frage' : 'Fertig')+'</button></div>';
+    return '<div class="quiz-card quiz-thanks" data-thanks="'+esc(q.id)+'"><p class="quiz-v">Danke!</p><p class="quiz-pq">'+esc(q.question)+'</p><p class="quiz-mine">'+esc(q.answer)+'</p>'+
+      '<button type="button" class="quiz-next">'+(more ? 'OK' : 'Fertig')+'</button></div>';
   }
   $('quiz').addEventListener('input', function(e){
     if (!e.target.classList.contains('quiz-text')) return;
@@ -701,12 +702,11 @@
       renderQuiz(quizList);
       if (n > 0 && /matcha/i.test(qOpts(q)[n - 1] || '')) fakeCrash(q);
       else if (n > 0 && /^espresso$/i.test((qOpts(q)[n - 1] || '').trim())) espressoParty();
-      if (n === 0) { var ta = $('quiz').querySelector('.quiz-text'); if (ta) ta.focus(); }
+      if (n === 0) { var ta = $('quiz').querySelector('.quiz-card[data-id="'+id+'"] .quiz-text'); if (ta) ta.focus(); }
       return;
     }
     if (e.target.closest('.quiz-next')) {
       quizThanks = null; quizShow = null; renderQuiz(quizList);
-      var c = $('quiz').querySelector('.quiz-card'); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
     if (e.target.closest('.quiz-cancel')) { if (q) delete quizDraft[q.id]; quizShow = null; renderQuiz(quizList); return; }
@@ -714,7 +714,7 @@
     if (ed) {
       quizShow = ed.dataset.id; quizThanks = null; delete quizDraft[quizShow];
       renderQuiz(quizList);
-      var c2 = $('quiz').querySelector('.quiz-card'); if (c2) c2.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      var c2 = $('quiz').querySelector('.quiz-card[data-id="'+quizShow+'"]'); if (c2) c2.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
     var go = e.target.closest('.quiz-go');

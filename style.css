@@ -575,3 +575,4 @@ canvas.confetti.on{display:block}
 @keyframes espIn{from{opacity:0}to{opacity:1}}
 @keyframes espPop{from{opacity:0;transform:scale(.7) translateY(20px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.esp-bean{display:none}.esp-steam{animation:none}}
+.quiz-cards{display:flex;flex-direction:column;gap:14px}
