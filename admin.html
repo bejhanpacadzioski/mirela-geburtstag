@@ -7,7 +7,7 @@
 <title>Steuerung · Mirelas Tag</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css?v=55">
+<link rel="stylesheet" href="style.css?v=56">
 </head>
 <body>
 <main class="wrap">
@@ -233,6 +233,8 @@
       fieldHTML('f-note', 'Beschreibung', 'optional', '<textarea id="f-note" rows="3">'+esc(it.note)+'</textarea>')+
       fieldHTML('f-location', 'Ort', 'optional, erscheint als Kartenlink', '<input id="f-location" placeholder="z. B. Furrengasse 6, 6004 Luzern" value="'+esc(it.location)+'">')+
       fieldHTML('f-link', 'Link', 'optional, z. B. Website oder Reservierung. Mirela sieht ihn, sobald der Eintrag freigegeben ist.', '<input id="f-link" type="url" inputmode="url" placeholder="https://…" value="'+esc(it.admin_link)+'">')+
+      (it.revealed ? '' : fieldHTML('f-reveal', 'Automatisch freigeben am', 'optional. Leer lassen, wenn du selbst freigibst.',
+        '<div class="reveal-row"><input id="f-reveal" type="datetime-local" value="'+esc(toLocalInput(it.reveal_at))+'"><button type="button" class="ghost" data-act="clear-reveal">Leeren</button></div>'))+
 
       '<div class="actions"><button type="submit"'+(busy?' disabled':'')+'>Speichern</button>'+
       '<button type="button" class="ghost" data-act="cancel">Abbrechen</button>'+del+'</div>'+
@@ -471,7 +473,7 @@
         (!it.evening || it.evening === 'immer' ? '' : '<span class="vchip v-ev">'+esc(evLabel(it.evening))+'</span>');
       return '<li class="entry'+(on?' is-on':'')+(active?'':' is-off')+'" data-id="'+esc(it.id)+'">'+
         '<div class="entry-top"><span class="entry-time">'+esc(it.time_label)+'</span>'+
-          '<span class="chips">'+vchip+'<span class="chip'+(on?' on':'')+'">'+(on?'Sichtbar':(it.hide_when_locked || hideLocked ? 'Unsichtbar' : 'Gesperrt'))+'</span></span></div>'+
+          '<span class="chips">'+vchip+(!on && it.reveal_at ? '<span class="chip chip-timer" title="Wird automatisch freigegeben">⏱ '+esc(revealLabel(it.reveal_at))+'</span>' : '')+'<span class="chip'+(on?' on':'')+'">'+(on?'Sichtbar':(it.hide_when_locked || hideLocked ? 'Unsichtbar' : 'Gesperrt'))+'</span></span></div>'+
         (active ? '' : '<p class="entry-off">Nicht im aktiven Programm, Mirela sieht diesen Punkt gerade nicht.</p>')+
         (open ? '' :
           '<p class="entry-title">'+esc(it.title)+'</p>'+
@@ -594,6 +596,15 @@
     run(steps, 'Reihenfolge gespeichert.');
   }
 
+  function toLocalInput(iso){
+    if (!iso) return '';
+    var d = new Date(iso); if (isNaN(d)) return '';
+    function p(n){ return String(n).padStart(2, '0'); }
+    return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes());
+  }
+  function revealLabel(iso){
+    return new Date(iso).toLocaleString('de-CH', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  }
   async function saveEditor(){
     var data = {
       program: val('f-variant') || 'beide',
@@ -605,6 +616,15 @@
       note: val('f-note') || null,
       admin_link: val('f-link') || null
     };
+    if ($('f-reveal')) {
+      var rv = $('f-reveal').value;
+      if (rv) {
+        var rd = new Date(rv);
+        if (isNaN(rd)) { say($('msg'), 'Der Zeitpunkt für die Freigabe ist ungültig.', true); return; }
+        if (rd <= new Date()) { say($('msg'), 'Der Zeitpunkt für die Freigabe liegt in der Vergangenheit. Gib den Eintrag stattdessen mit «Sichtbar» frei.', true); return; }
+        data.reveal_at = rd.toISOString();
+      } else data.reveal_at = null;
+    }
     if (data.admin_link && !/^https?:\/\//i.test(data.admin_link)) data.admin_link = 'https://' + data.admin_link;
     if (!data.time_label || !data.title) { say($('msg'), 'Uhrzeit und Titel braucht jeder Eintrag.', true); return; }
     var ok;
@@ -653,6 +673,7 @@
       run([function(){ return sb.from('plan').update({ revealed: !it.revealed }).eq('id', id); }],
           it.revealed ? 'Wieder verborgen.' : (isActive(it) ? 'Freigeschaltet. Mirela sieht es gleich.' : 'Freigeschaltet. Sichtbar wird es erst im Programm ' + VLABEL[it.program] + '.'));
     }
+    else if (act === 'clear-reveal') { var fr = $('f-reveal'); if (fr) fr.value = ''; return; }
     else if (act === 'edit') { editing = id; confirmDel = null; say($('msg'), ''); render(); var f = $('f-time'); if (f) f.focus(); }
     else if (act === 'cancel') { editing = null; confirmDel = null; render(); }
     else if (act === 'delete') {
